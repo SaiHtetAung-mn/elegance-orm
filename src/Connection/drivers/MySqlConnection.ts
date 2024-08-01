@@ -1,18 +1,64 @@
+import { Pool, ResultSetHeader } from "mysql2/promise";
+import { Config } from "../types";
 import DbConnection from "./DbConnection";
+import mysql, { RowDataPacket } from "mysql2/promise";
 
 class MySqlConnection extends DbConnection {
-    connect(): Promise<void> {
-        throw new Error("Method not implemented.");
+    private pool!: Pool;
+
+    constructor(config: Config) {
+        super(config);
+        this.createConnectionPool();
     }
+
+    private createConnectionPool(): void {
+        this.pool = mysql.createPool({
+            connectionLimit: 10,
+            host: this.config.host,
+            port: this.config.port,
+            user: this.config.user,
+            password: this.config.password,
+            database: this.config.database
+        });
+    }
+
+    private async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[]): Promise<T|undefined> {
+        const con = await this.pool.getConnection();
+        try {
+            const [result] = await con.query<T>(query, bindings);
+            return result;
+        }
+        catch(err: any) {
+            Promise.reject(err);
+        }
+        finally {
+            con.release();
+        }
+    }
+
+    async connect(): Promise<void> {
+        const conn = await this.pool.getConnection();
+        await conn.connect();
+        conn.release();
+        return Promise.resolve();
+    }
+
     disconnect(): Promise<void> {
-        throw new Error("Method not implemented.");
+        return Promise.resolve();
     }
-    select(query: string, bindings: []): Promise<any[]> {
-        throw new Error("Method not implemented.");
+
+    async select(query: string, bindings: []): Promise<any[]> {
+        const rows = await this.runQuery<RowDataPacket[]>(query, bindings);
+        return rows ?? [];
     }
-    insert(query: string, bindings: []): Promise<any[]> {
-        throw new Error("Method not implemented.");
+
+    async insert(query: string, bindings: []): Promise<ResultSetHeader|null> {
+        const result = await this.runQuery<ResultSetHeader>(query, bindings);
+        if(!result) return null;
+
+        return result;
     }
+
     update(query: string, bindings: []): Promise<any[]> {
         throw new Error("Method not implemented.");
     }

@@ -13,4 +13,5 @@ enum operatorEnum {
     NOT_BETWEEN = 'not between',
 }
 
+
 export default operatorEnum;

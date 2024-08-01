@@ -1,10 +1,14 @@
-import Grammar from "./Grammar/Grammar";
-import MySqlGrammar from "./Grammar/MySqlGrammar";
+import Connection from "../Connection/Connection";
+import Model from "../Model/Model";
+import Grammar from "./Grammars/Grammar";
+import Processor from "./Processors/Processor";
 import operatorEnum from "./enums/operator";
 import { QueryObjType } from "./types";
 
-class Builder<T> {
+class Builder<T extends Model> {
     protected readonly queryObj: QueryObjType = {
+        primaryKey: "id",
+        aggregate: null,
         selects: [],
         distinct: false,
         from: "",
@@ -16,32 +20,65 @@ class Builder<T> {
         offset: null
     };
 
-    private grammar: Grammar;
+    private binding: { where: any[], having: any[] } = {
+        where: [],
+        having: []
+    }
 
-    constructor(table: string) {
-        this.queryObj.from = table;
-        this.grammar = new MySqlGrammar();
+    private model: T;
+    private connection: Connection;
+    private grammar: Grammar;
+    private processor: Processor;
+
+    constructor(model: T) {
+        this.model = model;
+        this.queryObj.from = model.getTable();
+        this.queryObj.primaryKey = model.getPrimaryKey();
+        this.connection = Connection.getInstance();
+        this.grammar = this.connection.getGrammar();
+        this.processor = this.connection.getQueryProcessor();
     }
 
     getQueryObj(): QueryObjType {
         return this.queryObj;
     }
 
+    toSql(): string {
+        return this.grammar.compileSelect(this);
+    }
+
     /** Query methods  */
-    all(): Promise<T[]> {
-        throw new Error("Method not implemented");
+
+    async create(attributes: Record<string, any>): Promise<T> {
+        const newModelInstance = this.model.newInstance(attributes);
+        await newModelInstance.save();
+        return newModelInstance;
     }
 
-    find(id: string|number): Promise<T> {
-        throw new Error("Method not implemented");
+    async find(id: string|number): Promise<T|null> {
+        return await this
+            .where(this.queryObj.primaryKey, "=", id)
+            .first();
     }
 
-    first(): Promise<T> {
-        throw new Error("Method not implemented");
+    async first(): Promise<T|null> {
+        const data = await this.limit(1).get();
+        return data.length > 0 ? data[0] : null;
     }
 
-    get(): Promise<T[]> {
-        throw new Error("Method not implemented");
+    async get(): Promise<T[]> {
+        const query = this.grammar.compileSelect(this);
+        const binding = [...this.binding.where, ...this.binding.having];
+        const data: T[] = await this.processor.processSelect<T>(query, binding, this.model.constructor);
+        return data;
+    }
+
+    async insertGetId(attributes: Record<string, any>): Promise<number> {
+        const values: any[] = Object.values(attributes);
+        const columns: string[] = Object.keys(attributes);
+        const query: string = this.grammar.compileInsert(this, columns);
+
+        return await this.processor.processInsertGetId(query, values);
     }
 
     /** Aggregation methods */
@@ -61,6 +98,11 @@ class Builder<T> {
         throw new Error("Method not implemented");
     }
 
+    private setAggregate(functionName: "count"|"max"|"min"|"avg"|"sun", column: string): this {
+        this.queryObj.aggregate = { "function": functionName, column };
+        return this;
+    }
+
     /** Projection methods */
     select(columns: string[]): this {
         this.queryObj.selects.push(...columns);
@@ -74,55 +116,123 @@ class Builder<T> {
 
     /** Filtering methods */
     where(column: string, operator: `${operatorEnum}`, value: any, boolean: "and"|"or" = "and"): this {
-        this.queryObj.wheres.push({ column, operator: operator as operatorEnum, value, boolean, type: "basic" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: operator as operatorEnum, 
+            value, 
+            boolean, 
+            type: "basic" }
+        );
+
+        this.binding.where.push(value);
 
         return this;
     }
 
     orWhere(column: string, operator: `${operatorEnum}`|null, value: any): this {
-        this.queryObj.wheres.push({ column, operator: operator as operatorEnum, value, boolean: "or", type: "basic" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: operator as operatorEnum, 
+            value, 
+            boolean: "or", 
+            type: "basic" 
+        });
+
+        this.binding.where.push(value);
 
         return this;
     }
 
     andWhere(column: string, operator: `${operatorEnum}`|null, value: any): this {
-        this.queryObj.wheres.push({ column, operator: operator as operatorEnum, value, boolean: "and", type: "basic" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: operator as operatorEnum, 
+            value, 
+            boolean: "and", 
+            type: "basic" 
+        });
+
+        this.binding.where.push(value);
 
         return this;
     }
 
     whereIn(column: string, value: any[]): this {
-        this.queryObj.wheres.push({ column, operator: operatorEnum.IN, value, boolean: "and", type: "in" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: operatorEnum.IN, 
+            value, 
+            boolean: "and", 
+            type: "in" 
+        });
+
+        this.binding.where.push(...value);
 
         return this;
     }
 
     whereNotIn(column: string, value: any[]): this {
-        this.queryObj.wheres.push({ column, operator: operatorEnum.NOT_IN, value, boolean: "and", type: "in" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: operatorEnum.NOT_IN, 
+            value, 
+            boolean: "and", 
+            type: "in" 
+        });
+
+        this.binding.where.push(...value);
 
         return this;
     }
 
     whereBetween(column: string, values: [value1: any, value2: any]): this {
-        this.queryObj.wheres.push({ column, operator: operatorEnum.BETWEEN, value: values, boolean: "and", type: "between" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: operatorEnum.BETWEEN, 
+            value: values, 
+            boolean: "and", 
+            type: "between" 
+        });
+
+        this.binding.where.push(...values);
 
         return this;
     }
 
     whereNotBetween(column: string, values: [value1: any, value2: any]): this {
-        this.queryObj.wheres.push({ column, operator: operatorEnum.NOT_BETWEEN, value: values, boolean: "and", type: "between" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: operatorEnum.NOT_BETWEEN, 
+            value: values, 
+            boolean: "and", 
+            type: "between" 
+        });
+
+        this.binding.where.push(...values);
 
         return this;
     }
 
     whereNull(column: string): this {
-        this.queryObj.wheres.push({ column, operator: null, value: null, boolean: "and", type: "null" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: null, 
+            value: null, 
+            boolean: "and", 
+            type: "null" 
+        });
 
         return this;
     }
 
     whereNotNull(column: string): this {
-        this.queryObj.wheres.push({ column, operator: null, value: null, boolean: "and", type: "not_null" });
+        this.queryObj.wheres.push({ 
+            column, 
+            operator: null, 
+            value: null, 
+            boolean: "and", 
+            type: "not_null" 
+        });
 
         return this;
     }
@@ -143,8 +253,16 @@ class Builder<T> {
         return this;
     }
 
-    having(column: string, operator: `${operatorEnum}`, value: any, boolean: "and"|"or"): this {
-        this.queryObj.havings.push({ column, operator: operator as operatorEnum, value, boolean, type: "basic" });
+    having(column: string, operator: `${operatorEnum}`, value: any, boolean: "and"|"or"="and"): this {
+        this.queryObj.havings.push({ 
+            column, 
+            operator: operator as operatorEnum, 
+            value, 
+            boolean, 
+            type: "basic" 
+        });
+
+        this.binding.having.push(value);
 
         return this;
     }

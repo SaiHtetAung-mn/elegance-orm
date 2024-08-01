@@ -1,7 +1,7 @@
-import Grammar from "../../Query/Grammar/Grammar";
-import MySqlGrammar from "../../Query/Grammar/MySqlGrammar";
-import PostgreSqlGrammar from "../../Query/Grammar/PostgreSqlGrammar";
-import SQLiteGrammar from "../../Query/Grammar/SQLiteGrammar";
+import Grammar from "../../Query/Grammars/Grammar";
+import MySqlGrammar from "../../Query/Grammars/MySqlGrammar";
+import PostgreSqlGrammar from "../../Query/Grammars/PostgreSqlGrammar";
+import SQLiteGrammar from "../../Query/Grammars/SQLiteGrammar";
 import { Config } from "../types";
 
 class GrammarFactory {
