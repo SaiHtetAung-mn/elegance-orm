@@ -12,7 +12,8 @@ abstract class DbConnection {
     
     abstract select(query: string, bindings: any[]): Promise<any[]>;
     abstract insert(query: string, bindings: any[]): Promise<any>;
-    abstract update(query: string, bindings: any[]): Promise<any[]>;
+    abstract update(query: string, bindings: any[]): Promise<any>;
+    abstract delete(query: string, bindings: any[]): Promise<any>;
 }
 
 export default DbConnection;

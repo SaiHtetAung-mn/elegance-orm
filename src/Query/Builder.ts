@@ -73,7 +73,7 @@ class Builder<T extends Model> {
         return data;
     }
 
-    async insertGetId(attributes: Record<string, any>): Promise<number> {
+    async insertGetId(attributes: Record<string, any>): Promise<number|null> {
         const values: any[] = Object.values(attributes);
         const columns: string[] = Object.keys(attributes);
         const query: string = this.grammar.compileInsert(this, columns);
@@ -81,26 +81,71 @@ class Builder<T extends Model> {
         return await this.processor.processInsertGetId(query, values);
     }
 
+    async update(attributes: Partial<T>): Promise<number> {
+        const values: any[] = Object.values(attributes);
+        const columns: string[] = Object.keys(attributes);
+        const sql: string = this.grammar.compileUpdate(this, columns);
+        const bindings: any[] = [...values, ...this.binding.where];
+
+        return await this.processor.processUpdate(sql, bindings);
+    }
+
+    async delete(): Promise<number> {
+        const sql: string = this.grammar.compileDelete(this);
+        const bindings: any[] = [...this.binding.where];
+
+        return await this.processor.processDelete(sql, bindings);
+    }
+
     /** Aggregation methods */
-    count(): Promise<number> {
-        throw new Error("Method not implemented");
+    async count(column: string = "*"): Promise<number> {
+        return await this.aggregate("count", column);
     }
 
-    sum(column: string): Promise<number> {
-        throw new Error("Method not implemented");
+    async sum(column: string): Promise<number> {
+        if(!column)
+            throw new Error("The 'sum' method requires one argument");
+
+        return await this.aggregate("sum", column);
     }
 
-    avg(column: string): Promise<number> {
-        throw new Error("Method not implemented");
+    async avg(column: string): Promise<number> {
+        if(!column)
+            throw new Error("The 'sum' method requires one argument");
+
+        return await this.aggregate("avg", column);
     }
 
-    min(column: string): Promise<number> {
-        throw new Error("Method not implemented");
+    async min(column: string): Promise<number> {
+        if(!column)
+            throw new Error("The 'min' method requires at least one argument");
+
+        return await this.aggregate("min", column);
     }
 
-    private setAggregate(functionName: "count"|"max"|"min"|"avg"|"sun", column: string): this {
+    async max(column: string): Promise<number> {
+        if(!column)
+            throw new Error("The 'max' method requires at least one argument");
+
+        return await this.aggregate("max", column);
+    }
+
+    private setAggregate(functionName: "count"|"max"|"min"|"avg"|"sum", column: string): this {
         this.queryObj.aggregate = { "function": functionName, column };
         return this;
+    }
+
+    private async aggregate(functionName: "count"|"max"|"min"|"avg"|"sum", column: string): Promise<number> {
+        this.setAggregate(functionName, column);
+
+        this.queryObj.selects = [];
+        this.queryObj.orders = [];
+        this.queryObj.limit = null;
+
+        const sql = this.grammar.compileSelect(this);
+        const result = await this.connection.select(sql, [...this.binding.where, ...this.binding.having]);
+
+        return result.length == 0 ? 0 : result[0]["aggregate"];
     }
 
     /** Projection methods */
@@ -253,7 +298,7 @@ class Builder<T extends Model> {
         return this;
     }
 
-    having(column: string, operator: `${operatorEnum}`, value: any, boolean: "and"|"or"="and"): this {
+    having(column: string, operator: `${operatorEnum}`, value: any, boolean: "and"|"or" = "and"): this {
         this.queryObj.havings.push({ 
             column, 
             operator: operator as operatorEnum, 
@@ -271,15 +316,6 @@ class Builder<T extends Model> {
         this.queryObj.limit = value;
 
         return this;
-    }
-
-    /** Update, Delete */
-    update(values: { column: string, value: any }[]): Promise<T> {
-        throw new Error("Method not implemented");
-    }
-
-    delete(): Promise<void> {
-        throw new Error("Method not implemented");
     }
 }
 

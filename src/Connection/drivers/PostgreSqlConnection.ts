@@ -16,6 +16,9 @@ class PostgreSqlConnection extends DbConnection {
     update(query: string, bindings: []): Promise<any[]> {
         throw new Error("Method not implemented.");
     }
+    delete(query: string, bindings: any[]): Promise<any> {
+        throw new Error("Method not implemented.");
+    }
 
 }
 

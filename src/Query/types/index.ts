@@ -15,7 +15,7 @@ export type OrderObjType = {
 
 export type QueryObjType = {
     primaryKey: string,
-    aggregate: { "function": string, column: string }|null,
+    aggregate: { "function": "count"|"sum"|"avg"|"min"|"max", column: string }|null,
     selects: string[],
     distinct: boolean,
     from: string,

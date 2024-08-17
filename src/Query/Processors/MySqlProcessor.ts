@@ -1,4 +1,3 @@
-import { ResultSetHeader } from "mysql2";
 import Connection from "../../Connection/Connection";
 import Model from "../../Model/Model";
 import Processor from "./Processor";
@@ -16,9 +15,20 @@ class MySqlProcessor implements Processor {
         return models;
     }
 
-    async processInsertGetId(query: string, values: any[]): Promise<number> {
-        const result: ResultSetHeader = await this.connection.insert(query, values);
-        return result.insertId;
+    async processInsertGetId(query: string, values: any[]): Promise<number|null> {
+        const insertedId:(number|null) = await this.connection.insert(query, values);
+
+        return insertedId;
+    }
+
+    async processUpdate(query: string, bindings: any[]): Promise<number> {
+        const numberOfUpdatedRows = await this.connection.update(query, bindings);
+        return numberOfUpdatedRows;
+    }
+
+    async processDelete(query: string, bindings: any[]): Promise<number> {
+        const numberOfDeletedRows = await this.connection.delete(query, bindings);
+        return numberOfDeletedRows;
     }
     
 }

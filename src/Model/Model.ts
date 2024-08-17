@@ -6,7 +6,13 @@ class Model {
     [x: string]: any;
 
     @Exclude()
-    private _attributes: Record<string, any> = {};
+    protected _attributes: Record<string, any> = {};
+
+    @Exclude()
+    protected _original: Record<string, any> = {};
+    
+    @Exclude()
+    protected _dirty: Record<string, any> = {};
 
     @Exclude()
     protected table: string = "";
@@ -47,20 +53,47 @@ class Model {
                 if (prop in target) {
                     target[prop] = value;
                 }
-                else if(target.isFillable(prop))
+                else if(target.isFillable(prop)) {
+                    if(!target.isNew) {
+                        target.setDirty(prop, value);
+                    }
+
                     target.setAttribute(prop, value); 
+                }
 
                 return true;
             }
         });
     }
 
-    private setAttribute(key: string, value: any) {
+    protected getAttribute(key: string) {
+        return this._attributes[key];
+    }
+
+    protected setAttribute(key: string, value: any) {
         this._attributes[key] = value;
     }
 
-    private getAttribute(key: string) {
-        return this._attributes[key];
+    protected getOriginal(key?: string) {
+        if(!key)
+            return this._original;
+
+        return this._original[key];
+    }
+
+    ​protected setOriginal(attributes: Record<string, any>) {
+        this._original = attributes;
+    }
+
+    protected getDirty(key?: string) {
+        if(!key)
+            return this._dirty;
+
+        return this._dirty[key];
+    }
+
+    protected setDirty(key: string, value: any) {
+        this._dirty[key] = value;
     }
 
     public fill(attributes: Record<string, any>) {
@@ -77,7 +110,7 @@ class Model {
         });
     }
 
-    private isFillable(column: string): boolean {
+    protected isFillable(column: string): boolean {
         if(this.fillable.includes(column))
             return true;
 
@@ -87,7 +120,7 @@ class Model {
         return this.fillable.length === 0;
     }
 
-    private filterFillable(attributes: Record<string, any>): Record<string, any> {
+    protected filterFillable(attributes: Record<string, any>): Record<string, any> {
         const newAttributes = Object.assign({}, attributes);
         if(this.fillable.length > 0 && !this.isTotallyGuarded()) {
             Object.keys(newAttributes).forEach(key => {
@@ -99,7 +132,7 @@ class Model {
         return newAttributes;
     }
 
-    private isGuarded(column: string): boolean {
+    protected isGuarded(column: string): boolean {
         if (this.guarded.length === 0) {
             return false;
         }
@@ -107,8 +140,15 @@ class Model {
         return this.isTotallyGuarded() || this.guarded.includes(column);
     }
 
-    private isTotallyGuarded(): boolean {
+    protected isTotallyGuarded(): boolean {
         return this.fillable.length === 0 && this.guarded.length === 1 && this.guarded[0] === "*";
+    }
+
+    protected isDirty(): boolean {
+        if(this.isNew || this.getDirty().length === 0)
+            return false;
+
+        return Object.keys(this.getDirty()).some((key: string) => this.getOriginal(key) !== this.getDirty(key));
     }
 
     static query<T extends Model>(this: { new(): T }): Builder<T> {
@@ -120,6 +160,7 @@ class Model {
         return records.map(record => {
             const newInstance = new this();
             newInstance.fill(record);
+            newInstance.setOriginal(record);
             newInstance.isNew = false;
             return newInstance;
         }) as T[]; 
@@ -154,24 +195,33 @@ class Model {
         return saved;
     }
 
-    private async performInsert(builder: Builder<this>): Promise<boolean> {
-        if(this.timestamps)
-            this.updateTimestamps();
+    protected async performInsert(builder: Builder<this>): Promise<boolean> {
+        this.updateTimestamps();
 
-        const id: number = await builder.insertGetId(this._attributes);
-        this.setAttribute(this.primaryKey, id);
+        const id: number|null = await builder.insertGetId(this._attributes);
+
+        id && this.setAttribute(this.primaryKey, id);
 
         this.isNew = false;
         return true;
     }
 
-    private async performUpdate(builder: Builder<this>): Promise<boolean> {
+    protected async performUpdate(builder: Builder<this>): Promise<boolean> {
+        if(!this.isDirty())
+            return true;
+
+        this.updateTimestamps();
+
+        await builder
+            .where(this.primaryKey, "=", this.getAttribute(this.primaryKey))
+            .update(this.getDirty() as Partial<this>);
+
         return true;
     }
 
-    private updateTimestamps() {
+    protected updateTimestamps() {
         if(this.timestamps) {
-            if(!(this as Record<string, any>)[this.CREATED_AT]) {
+            if(!(this as Record<string, any>)[this.CREATED_AT] && this.isNew) {
                 (this as Record<string, any>)[this.CREATED_AT] = this.formatDateToMySQL(new Date)
             }
 
@@ -179,7 +229,7 @@ class Model {
         }
     }
 
-    private formatDateToMySQL(date: Date) {
+    protected formatDateToMySQL(date: Date) {
         const d = new Date(date);
     
         // Pad single digit numbers with leading zero

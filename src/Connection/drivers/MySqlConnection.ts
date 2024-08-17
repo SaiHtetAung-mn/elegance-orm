@@ -52,15 +52,25 @@ class MySqlConnection extends DbConnection {
         return rows ?? [];
     }
 
-    async insert(query: string, bindings: []): Promise<ResultSetHeader|null> {
+    async insert(query: string, bindings: []): Promise<number|null> {
         const result = await this.runQuery<ResultSetHeader>(query, bindings);
         if(!result) return null;
 
-        return result;
+        return result.insertId;
     }
 
-    update(query: string, bindings: []): Promise<any[]> {
-        throw new Error("Method not implemented.");
+    async update(query: string, bindings: any[]): Promise<number> {
+        const result = await this.runQuery<ResultSetHeader>(query, bindings);
+        if(!result) return 0;
+
+        return result.affectedRows;
+    }
+
+    async delete(query: string, bindings: any[]): Promise<any> {
+        const result = await this.runQuery<ResultSetHeader>(query, bindings);
+        if(!result) return 0;
+
+        return result.affectedRows;
     }
 
 }

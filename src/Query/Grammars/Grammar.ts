@@ -3,8 +3,10 @@ import Builder from "../Builder";
 abstract class Grammar {
     abstract compileSelect(builder: Builder<any>): string;
     abstract compileInsert(builder: Builder<any>, columns: string[]): string;
-    abstract compileUpdate(builder: Builder<any>): string;
+    abstract compileUpdate(builder: Builder<any>, columns: string[]): string;
     abstract compileDelete(builder: Builder<any>): string;
+
+    abstract compileAggregate(builder: Builder<any>): string;
 
     abstract compileDistinct(builder: Builder<any>): string;
     abstract compileColumns(builder: Builder<any>): string;

@@ -48,7 +48,14 @@ class Connection {
     async insert(query: string, bindings: any[]): Promise<any> {
         return await this.connection.insert(query, bindings);
     }
-    // update(query: string, bindings: []): Promise<any[]>;
+
+    async update(query: string, bindings: any[]): Promise<number> {
+        return await this.connection.update(query, bindings);
+    }
+
+    async delete(query: string, bindings: any[]): Promise<number> {
+        return await this.connection.delete(query, bindings);
+    }
 }
 
 export default Connection;

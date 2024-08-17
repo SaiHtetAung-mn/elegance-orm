@@ -9,6 +9,7 @@ class MySqlGrammar extends Grammar {
         sql.push(
             this.compileDistinct(builder),
             this.compileColumns(builder),
+            this.compileAggregate(builder),
             this.compileFrom(builder),
             this.compileWhere(builder),
             this.compileGroupBy(builder),
@@ -33,11 +34,38 @@ class MySqlGrammar extends Grammar {
         return query.join(" ").trim();
     }
 
-    compileUpdate(builder: Builder<any>): string {
-        throw new Error("Method not implemented.");
+    compileUpdate(builder: Builder<any>, columns: string[]): string {
+        const colValPairs: string = columns.map(col => this.wrap(col)+" = ?").join(", ");
+        
+        const query: string[] = ["update"];
+
+        query.push(
+            this.wrapTable(builder.getQueryObj().from),
+            "set",
+            colValPairs
+        );
+
+        if(builder.getQueryObj().wheres.length > 0) {
+            query.push(
+                this.compileWhere(builder)
+            );
+        }
+
+        return query.join(" ").trim();
     }
+
     compileDelete(builder: Builder<any>): string {
-        throw new Error("Method not implemented.");
+        const query = [
+            "delete", 
+            "from", 
+            this.wrapTable(builder.getQueryObj().from)
+        ];
+        
+        if(builder.getQueryObj().wheres.length > 0) {
+            query.push(this.compileWhere(builder));
+        }
+
+        return query.join(" ").trim();
     }
 
     compileDistinct(builder: Builder<any>): string {
@@ -45,13 +73,24 @@ class MySqlGrammar extends Grammar {
         return q.selects.length > 0 && q.distinct ? "distinct" : "";
     }
 
+    compileAggregate(builder: Builder<any>): string {
+        const q = builder.getQueryObj();
+        if(!q.aggregate)
+            return "";
+
+        return q.aggregate.function+"("+q.aggregate.column+")"+" as aggregate";
+    }
+
     compileColumns(builder: Builder<any>): string {
+        if(builder.getQueryObj().aggregate)
+            return "";
+        
         const selectQ = builder.getQueryObj().selects
             .map((column: string) => this.wrap(column))
             .join(", ");
         
         return selectQ === "" ? "*" : selectQ;
-     }
+    }
 
     compileFrom(builder: Builder<any>): string {
         return "from "+this.wrapTable(builder.getQueryObj().from);

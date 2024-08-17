@@ -8,6 +8,12 @@ class PostgreSqlProcessor implements Processor {
     constructor() {
         this.connection = Connection.getInstance();
     }
+    processDelete(query: string, bindings: any[]): Promise<number> {
+        throw new Error("Method not implemented.");
+    }
+    processUpdate(query: string, bindings: any[]): Promise<number> {
+        throw new Error("Method not implemented.");
+    }
     
     processInsert<T extends Model>(query: string, bindings: any[], ModelClass: any): Promise<T[]> {
         throw new Error("Method not implemented.");

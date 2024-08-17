@@ -2,6 +2,9 @@ import Builder from "../Builder";
 import Grammar from "./Grammar";
 
 class PostgreSqlGrammar extends Grammar {
+    compileAggregate(builder: Builder<any>): string {
+        throw new Error("Method not implemented.");
+    }
     compileSelect(builder: Builder<any>): string {
         throw new Error("Method not implemented.");
     }
