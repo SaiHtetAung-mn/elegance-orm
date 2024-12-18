@@ -1,23 +1,24 @@
-import Grammar from "../Query/Grammars/Grammar";
-import Processor from "../Query/Processors/Processor";
+import QueryGrammar from "../Query/Grammars/Grammar";
+import QueryProcessor from "../Query/Processors/Processor";
+import SchemaGrammar from "../Schema/Grammars/Grammar";
 import DbConnection from "./drivers/DbConnection";
 import ConnectionFactory from "./factory/ConnectionFactory";
 import QueryGrammarFactory from "./factory/QueryGrammarFactory";
 import QueryProcessorFactory from "./factory/QueryProcessorFactory";
 import { Config } from "./types";
 
-let _instance: Connection|null = null;
+let _instance: Connection | null = null;
 
 class Connection {
     private connection!: DbConnection;
     private config!: Config;
 
     private constructor() {
-        
+        throw new Error("Cannot create connection instance directly");
     }
 
     public static getInstance(): Connection {
-        if(_instance === null) {
+        if (_instance === null) {
             _instance = new Connection();
         }
 
@@ -33,12 +34,16 @@ class Connection {
             .catch((err: any) => { throw err });
     }
 
-    getQueryGrammar(): Grammar {
+    getQueryGrammar(): QueryGrammar {
         return QueryGrammarFactory.getQueryGrammar(this.config);
     }
 
-    getQueryProcessor(): Processor {
+    getQueryProcessor(): QueryProcessor {
         return QueryProcessorFactory.getProcessor(this.config);
+    }
+
+    getSchemaGrammar(): SchemaGrammar {
+        throw new Error("Not implemented");
     }
 
     async select(query: string, bindings: any[]): Promise<any[]> {

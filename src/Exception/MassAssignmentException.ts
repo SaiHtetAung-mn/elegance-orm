@@ -3,10 +3,10 @@ class MassAssignmentException extends Error {
         super(message);
         this.name = "MassAssignmentException";
 
-        if(Error.captureStackTrace) 
+        if (Error.captureStackTrace) {
             Error.captureStackTrace(this, this.constructor);
-        else {
-            this.toString = function(): string {
+        } else {
+            this.toString = function (): string {
                 return `${this.name}: ${this.message}`;
             }
         }

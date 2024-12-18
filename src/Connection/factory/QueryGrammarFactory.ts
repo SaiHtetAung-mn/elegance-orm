@@ -6,7 +6,7 @@ import { Config } from "../types";
 
 class GrammarFactory {
     public static getQueryGrammar(config: Config): Grammar {
-        switch(config.driver) {
+        switch (config.driver) {
             case "mysql": return new MySqlGrammar();
             case "postgresql": return new PostgreSqlGrammar();
             case "sqlite": return new SQLiteGrammar();

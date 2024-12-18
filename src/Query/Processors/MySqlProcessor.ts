@@ -15,8 +15,8 @@ class MySqlProcessor implements Processor {
         return models;
     }
 
-    async processInsertGetId(query: string, values: any[]): Promise<number|null> {
-        const insertedId:(number|null) = await this.connection.insert(query, values);
+    async processInsertGetId(query: string, values: any[]): Promise<number | null> {
+        const insertedId: (number | null) = await this.connection.insert(query, values);
 
         return insertedId;
     }
@@ -30,7 +30,7 @@ class MySqlProcessor implements Processor {
         const numberOfDeletedRows = await this.connection.delete(query, bindings);
         return numberOfDeletedRows;
     }
-    
+
 }
 
 export default MySqlProcessor;

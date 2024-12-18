@@ -6,7 +6,7 @@ import { Config } from "../types";
 
 class QueryProcessorFactory {
     public static getProcessor(config: Config): Processor {
-        switch(config.driver) {
+        switch (config.driver) {
             case "mysql": return new MySqlProcessor();
             case "postgresql": return new PostgreSqlProcessor();
             case "sqlite": return new SQLiteProcessor();

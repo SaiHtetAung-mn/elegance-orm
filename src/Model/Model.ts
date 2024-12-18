@@ -10,7 +10,7 @@ class Model {
 
     @Exclude()
     protected _original: Record<string, any> = {};
-    
+
     @Exclude()
     protected _dirty: Record<string, any> = {};
 
@@ -34,7 +34,7 @@ class Model {
 
     @Exclude()
     protected readonly CREATED_AT: string = "created_at";
-    
+
     @Exclude()
     protected readonly UPDATED_AT: string = "updated_at";
 
@@ -42,23 +42,23 @@ class Model {
     protected isNew: boolean = true;
 
     constructor() {
-        return new Proxy(this,  {
+        return new Proxy(this, {
             get(target: Model, prop: string) {
                 if (prop in target) {
                     return target[prop];
                 }
+
                 return target.getAttribute(prop);
             },
             set(target: Model, prop: string, value: any) {
                 if (prop in target) {
                     target[prop] = value;
-                }
-                else if(target.isFillable(prop)) {
-                    if(!target.isNew) {
+                } else if (target.isFillable(prop)) {
+                    if (!target.isNew) {
                         target.setDirty(prop, value);
                     }
 
-                    target.setAttribute(prop, value); 
+                    target.setAttribute(prop, value);
                 }
 
                 return true;
@@ -75,18 +75,18 @@ class Model {
     }
 
     protected getOriginal(key?: string) {
-        if(!key)
+        if (!key)
             return this._original;
 
         return this._original[key];
     }
 
-    ​protected setOriginal(attributes: Record<string, any>) {
+    protected setOriginal(attributes: Record<string, any>) {
         this._original = attributes;
     }
 
     protected getDirty(key?: string) {
-        if(!key)
+        if (!key)
             return this._dirty;
 
         return this._dirty[key];
@@ -111,10 +111,10 @@ class Model {
     }
 
     protected isFillable(column: string): boolean {
-        if(this.fillable.includes(column))
+        if (this.fillable.includes(column))
             return true;
 
-        if(this.isGuarded(column)) 
+        if (this.isGuarded(column))
             return false;
 
         return this.fillable.length === 0;
@@ -122,9 +122,10 @@ class Model {
 
     protected filterFillable(attributes: Record<string, any>): Record<string, any> {
         const newAttributes = Object.assign({}, attributes);
-        if(this.fillable.length > 0 && !this.isTotallyGuarded()) {
+
+        if (this.fillable.length > 0 && !this.isTotallyGuarded()) {
             Object.keys(newAttributes).forEach(key => {
-                if(!this.fillable.includes(key))
+                if (!this.fillable.includes(key))
                     delete newAttributes[key];
             });
         }
@@ -145,7 +146,7 @@ class Model {
     }
 
     protected isDirty(): boolean {
-        if(this.isNew || this.getDirty().length === 0)
+        if (this.isNew || this.getDirty().length === 0)
             return false;
 
         return Object.keys(this.getDirty()).some((key: string) => this.getOriginal(key) !== this.getDirty(key));
@@ -163,7 +164,7 @@ class Model {
             newInstance.setOriginal(record);
             newInstance.isNew = false;
             return newInstance;
-        }) as T[]; 
+        }) as T[];
     }
 
     static async create<T extends Model>(this: new () => T, attributes: Record<string, any>): Promise<T> {
@@ -174,7 +175,7 @@ class Model {
         return await builder.create(attributes);
     }
 
-    newInstance(attributes: Record<string, any>, isNew=true): this {
+    newInstance(attributes: Record<string, any>, isNew = true): this {
         const instance = new (this.constructor as typeof Model)();
         instance.fill(attributes);
         instance.isNew = isNew;
@@ -185,7 +186,7 @@ class Model {
         const builder = new Builder(this);
         let saved = false;
 
-        if(!this.isNew) {
+        if (!this.isNew) {
             saved = await this.performUpdate(builder);
         }
         else {
@@ -198,7 +199,7 @@ class Model {
     protected async performInsert(builder: Builder<this>): Promise<boolean> {
         this.updateTimestamps();
 
-        const id: number|null = await builder.insertGetId(this._attributes);
+        const id: number | null = await builder.insertGetId(this._attributes);
 
         id && this.setAttribute(this.primaryKey, id);
 
@@ -207,7 +208,7 @@ class Model {
     }
 
     protected async performUpdate(builder: Builder<this>): Promise<boolean> {
-        if(!this.isDirty())
+        if (!this.isDirty())
             return true;
 
         this.updateTimestamps();
@@ -220,8 +221,8 @@ class Model {
     }
 
     protected updateTimestamps() {
-        if(this.timestamps) {
-            if(!(this as Record<string, any>)[this.CREATED_AT] && this.isNew) {
+        if (this.timestamps) {
+            if (!(this as Record<string, any>)[this.CREATED_AT] && this.isNew) {
                 (this as Record<string, any>)[this.CREATED_AT] = this.formatDateToMySQL(new Date)
             }
 
@@ -231,7 +232,7 @@ class Model {
 
     protected formatDateToMySQL(date: Date) {
         const d = new Date(date);
-    
+
         // Pad single digit numbers with leading zero
         const pad = (num: number, size: number) => num.toString().padStart(size, '0');
 
@@ -241,7 +242,7 @@ class Model {
         const hours = pad(d.getHours(), 2);
         const minutes = pad(d.getMinutes(), 2);
         const seconds = pad(d.getSeconds(), 2);
-    
+
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
 
@@ -259,7 +260,7 @@ class Model {
 
         return record;
     }
-    
+
 }
 
 export default Model;

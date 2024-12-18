@@ -27,16 +27,16 @@ class MySqlGrammar extends Grammar {
 
         const query: string[] = ["insert into"];
         query.push(
-            this.wrapTable(builder.getQueryObj().from)+"("+cols+")",
-            "values("+values+")"
+            this.wrapTable(builder.getQueryObj().from) + "(" + cols + ")",
+            "values(" + values + ")"
         );
 
         return query.join(" ").trim();
     }
 
     compileUpdate(builder: Builder<any>, columns: string[]): string {
-        const colValPairs: string = columns.map(col => this.wrap(col)+" = ?").join(", ");
-        
+        const colValPairs: string = columns.map(col => this.wrap(col) + " = ?").join(", ");
+
         const query: string[] = ["update"];
 
         query.push(
@@ -45,7 +45,7 @@ class MySqlGrammar extends Grammar {
             colValPairs
         );
 
-        if(builder.getQueryObj().wheres.length > 0) {
+        if (builder.getQueryObj().wheres.length > 0) {
             query.push(
                 this.compileWhere(builder)
             );
@@ -56,12 +56,12 @@ class MySqlGrammar extends Grammar {
 
     compileDelete(builder: Builder<any>): string {
         const query = [
-            "delete", 
-            "from", 
+            "delete",
+            "from",
             this.wrapTable(builder.getQueryObj().from)
         ];
-        
-        if(builder.getQueryObj().wheres.length > 0) {
+
+        if (builder.getQueryObj().wheres.length > 0) {
             query.push(this.compileWhere(builder));
         }
 
@@ -75,35 +75,35 @@ class MySqlGrammar extends Grammar {
 
     compileAggregate(builder: Builder<any>): string {
         const q = builder.getQueryObj();
-        if(!q.aggregate)
+        if (!q.aggregate)
             return "";
 
-        return q.aggregate.function+"("+q.aggregate.column+")"+" as aggregate";
+        return q.aggregate.function + "(" + q.aggregate.column + ")" + " as aggregate";
     }
 
     compileColumns(builder: Builder<any>): string {
-        if(builder.getQueryObj().aggregate)
+        if (builder.getQueryObj().aggregate)
             return "";
-        
+
         const selectQ = builder.getQueryObj().selects
             .map((column: string) => this.wrap(column))
             .join(", ");
-        
+
         return selectQ === "" ? "*" : selectQ;
     }
 
     compileFrom(builder: Builder<any>): string {
-        return "from "+this.wrapTable(builder.getQueryObj().from);
+        return "from " + this.wrapTable(builder.getQueryObj().from);
     }
 
     compileWhere(builder: Builder<any>): string {
         const wheres = builder.getQueryObj().wheres;
-        if(wheres.length === 0) {
+        if (wheres.length === 0) {
             return "";
         }
 
         const whereClauses = wheres.map((where) => {
-            switch(where.type) {
+            switch (where.type) {
                 case "basic": return this.whereBasic(where);
                 case "in": return this.whereIn(where);
                 case "between": return this.whereBetween(where);
@@ -123,9 +123,9 @@ class MySqlGrammar extends Grammar {
     protected whereBasic(where: WhereObjType): string {
         const query = [];
         query.push(
-            where.boolean, 
-            this.wrap(where.column), 
-            where.operator, 
+            where.boolean,
+            this.wrap(where.column),
+            where.operator,
             "?"
         );
         return query.join(" ");
@@ -135,10 +135,10 @@ class MySqlGrammar extends Grammar {
         const values = Array.isArray(where.value) ? where.value.map(() => "?").join(", ") : "?";
         const query = [];
         query.push(
-            where.boolean, 
+            where.boolean,
             this.wrap(where.column),
             where.operator == operatorEnum.IN ? "in" : "not in",
-            "("+values+")"
+            "(" + values + ")"
         );
 
         return query.join(" ");
@@ -196,11 +196,11 @@ class MySqlGrammar extends Grammar {
 
     compileOrderBy(builder: Builder<any>): string {
         const orders = builder.getQueryObj().orders;
-        if(orders.length === 0) 
+        if (orders.length === 0)
             return "";
 
         const orderClauses = orders.map(order => {
-            return this.wrap(order.column)+" "+order.direction;
+            return this.wrap(order.column) + " " + order.direction;
         });
 
         return ["order by", orderClauses.join(", ")].join(" ");
@@ -208,7 +208,7 @@ class MySqlGrammar extends Grammar {
 
     compileGroupBy(builder: Builder<any>): string {
         const groups = builder.getQueryObj().groups;
-        if(groups.length === 0) 
+        if (groups.length === 0)
             return "";
 
         return ["group by", groups.map(column => this.wrap(column)).join(", ")].join(" ");
@@ -216,12 +216,12 @@ class MySqlGrammar extends Grammar {
 
     compileHaving(builder: Builder<any>): string {
         const havings = builder.getQueryObj().havings;
-        if(havings.length === 0) {
+        if (havings.length === 0) {
             return "";
         }
 
         const whereClauses = havings.map((where) => {
-            switch(where.type) {
+            switch (where.type) {
                 case "basic": return this.whereBasic(where);
                 case "in": return this.whereIn(where);
                 case "between": return this.whereBetween(where);
@@ -235,7 +235,7 @@ class MySqlGrammar extends Grammar {
 
     compileLimit(builder: Builder<any>): string {
         const limit = builder.getQueryObj().limit;
-        if(limit === null) 
+        if (limit === null)
             return "";
 
         return ["limit", limit].join(" ");

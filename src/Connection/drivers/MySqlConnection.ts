@@ -22,16 +22,14 @@ class MySqlConnection extends DbConnection {
         });
     }
 
-    private async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[]): Promise<T|undefined> {
+    private async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[]): Promise<T | undefined> {
         const con = await this.pool.getConnection();
         try {
             const [result] = await con.query<T>(query, bindings);
             return result;
-        }
-        catch(err: any) {
+        } catch (err: any) {
             Promise.reject(err);
-        }
-        finally {
+        } finally {
             con.release();
         }
     }
@@ -52,23 +50,23 @@ class MySqlConnection extends DbConnection {
         return rows ?? [];
     }
 
-    async insert(query: string, bindings: []): Promise<number|null> {
+    async insert(query: string, bindings: []): Promise<number | null> {
         const result = await this.runQuery<ResultSetHeader>(query, bindings);
-        if(!result) return null;
+        if (!result) return null;
 
         return result.insertId;
     }
 
     async update(query: string, bindings: any[]): Promise<number> {
         const result = await this.runQuery<ResultSetHeader>(query, bindings);
-        if(!result) return 0;
+        if (!result) return 0;
 
         return result.affectedRows;
     }
 
     async delete(query: string, bindings: any[]): Promise<any> {
         const result = await this.runQuery<ResultSetHeader>(query, bindings);
-        if(!result) return 0;
+        if (!result) return 0;
 
         return result.affectedRows;
     }

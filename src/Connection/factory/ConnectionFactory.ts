@@ -6,7 +6,7 @@ import { Config } from "../types";
 
 class ConnectionFactory {
     public static getConnection(config: Config): DbConnection {
-        switch(config.driver) {
+        switch (config.driver) {
             case "mysql": return new MySqlConnection(config);
             case "postgresql": return new PostgreSqlConnection(config);
             case "sqlite": return new SqliteConnection(config);

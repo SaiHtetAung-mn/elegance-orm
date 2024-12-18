@@ -55,13 +55,13 @@ class Builder<T extends Model> {
         return newModelInstance;
     }
 
-    async find(id: string|number): Promise<T|null> {
+    async find(id: string | number): Promise<T | null> {
         return await this
             .where(this.queryObj.primaryKey, "=", id)
             .first();
     }
 
-    async first(): Promise<T|null> {
+    async first(): Promise<T | null> {
         const data = await this.limit(1).get();
         return data.length > 0 ? data[0] : null;
     }
@@ -73,7 +73,7 @@ class Builder<T extends Model> {
         return data;
     }
 
-    async insertGetId(attributes: Record<string, any>): Promise<number|null> {
+    async insertGetId(attributes: Record<string, any>): Promise<number | null> {
         const values: any[] = Object.values(attributes);
         const columns: string[] = Object.keys(attributes);
         const query: string = this.grammar.compileInsert(this, columns);
@@ -103,39 +103,39 @@ class Builder<T extends Model> {
     }
 
     async sum(column: string): Promise<number> {
-        if(!column)
+        if (!column)
             throw new Error("The 'sum' method requires one argument");
 
         return await this.aggregate("sum", column);
     }
 
     async avg(column: string): Promise<number> {
-        if(!column)
-            throw new Error("The 'sum' method requires one argument");
+        if (!column)
+            throw new Error("The 'avg' method requires one argument");
 
         return await this.aggregate("avg", column);
     }
 
     async min(column: string): Promise<number> {
-        if(!column)
+        if (!column)
             throw new Error("The 'min' method requires at least one argument");
 
         return await this.aggregate("min", column);
     }
 
     async max(column: string): Promise<number> {
-        if(!column)
+        if (!column)
             throw new Error("The 'max' method requires at least one argument");
 
         return await this.aggregate("max", column);
     }
 
-    private setAggregate(functionName: "count"|"max"|"min"|"avg"|"sum", column: string): this {
+    private setAggregate(functionName: "count" | "max" | "min" | "avg" | "sum", column: string): this {
         this.queryObj.aggregate = { "function": functionName, column };
         return this;
     }
 
-    private async aggregate(functionName: "count"|"max"|"min"|"avg"|"sum", column: string): Promise<number> {
+    private async aggregate(functionName: "count" | "max" | "min" | "avg" | "sum", column: string): Promise<number> {
         this.setAggregate(functionName, column);
 
         this.queryObj.selects = [];
@@ -160,13 +160,14 @@ class Builder<T extends Model> {
     }
 
     /** Filtering methods */
-    where(column: string, operator: `${operatorEnum}`, value: any, boolean: "and"|"or" = "and"): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: operator as operatorEnum, 
-            value, 
-            boolean, 
-            type: "basic" }
+    where(column: string, operator: `${operatorEnum}`, value: any, boolean: "and" | "or" = "and"): this {
+        this.queryObj.wheres.push({
+            column,
+            operator: operator as operatorEnum,
+            value,
+            boolean,
+            type: "basic"
+        }
         );
 
         this.binding.where.push(value);
@@ -174,13 +175,13 @@ class Builder<T extends Model> {
         return this;
     }
 
-    orWhere(column: string, operator: `${operatorEnum}`|null, value: any): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: operator as operatorEnum, 
-            value, 
-            boolean: "or", 
-            type: "basic" 
+    orWhere(column: string, operator: `${operatorEnum}` | null, value: any): this {
+        this.queryObj.wheres.push({
+            column,
+            operator: operator as operatorEnum,
+            value,
+            boolean: "or",
+            type: "basic"
         });
 
         this.binding.where.push(value);
@@ -188,13 +189,13 @@ class Builder<T extends Model> {
         return this;
     }
 
-    andWhere(column: string, operator: `${operatorEnum}`|null, value: any): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: operator as operatorEnum, 
-            value, 
-            boolean: "and", 
-            type: "basic" 
+    andWhere(column: string, operator: `${operatorEnum}` | null, value: any): this {
+        this.queryObj.wheres.push({
+            column,
+            operator: operator as operatorEnum,
+            value,
+            boolean: "and",
+            type: "basic"
         });
 
         this.binding.where.push(value);
@@ -203,12 +204,12 @@ class Builder<T extends Model> {
     }
 
     whereIn(column: string, value: any[]): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: operatorEnum.IN, 
-            value, 
-            boolean: "and", 
-            type: "in" 
+        this.queryObj.wheres.push({
+            column,
+            operator: operatorEnum.IN,
+            value,
+            boolean: "and",
+            type: "in"
         });
 
         this.binding.where.push(...value);
@@ -217,12 +218,12 @@ class Builder<T extends Model> {
     }
 
     whereNotIn(column: string, value: any[]): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: operatorEnum.NOT_IN, 
-            value, 
-            boolean: "and", 
-            type: "in" 
+        this.queryObj.wheres.push({
+            column,
+            operator: operatorEnum.NOT_IN,
+            value,
+            boolean: "and",
+            type: "in"
         });
 
         this.binding.where.push(...value);
@@ -231,12 +232,12 @@ class Builder<T extends Model> {
     }
 
     whereBetween(column: string, values: [value1: any, value2: any]): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: operatorEnum.BETWEEN, 
-            value: values, 
-            boolean: "and", 
-            type: "between" 
+        this.queryObj.wheres.push({
+            column,
+            operator: operatorEnum.BETWEEN,
+            value: values,
+            boolean: "and",
+            type: "between"
         });
 
         this.binding.where.push(...values);
@@ -245,12 +246,12 @@ class Builder<T extends Model> {
     }
 
     whereNotBetween(column: string, values: [value1: any, value2: any]): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: operatorEnum.NOT_BETWEEN, 
-            value: values, 
-            boolean: "and", 
-            type: "between" 
+        this.queryObj.wheres.push({
+            column,
+            operator: operatorEnum.NOT_BETWEEN,
+            value: values,
+            boolean: "and",
+            type: "between"
         });
 
         this.binding.where.push(...values);
@@ -259,24 +260,24 @@ class Builder<T extends Model> {
     }
 
     whereNull(column: string): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: null, 
-            value: null, 
-            boolean: "and", 
-            type: "null" 
+        this.queryObj.wheres.push({
+            column,
+            operator: null,
+            value: null,
+            boolean: "and",
+            type: "null"
         });
 
         return this;
     }
 
     whereNotNull(column: string): this {
-        this.queryObj.wheres.push({ 
-            column, 
-            operator: null, 
-            value: null, 
-            boolean: "and", 
-            type: "not_null" 
+        this.queryObj.wheres.push({
+            column,
+            operator: null,
+            value: null,
+            boolean: "and",
+            type: "not_null"
         });
 
         return this;
@@ -286,7 +287,7 @@ class Builder<T extends Model> {
     //join(table: string, localId: any, $operator, $second = null, $type = 'inner', $where = false)
 
     /** Ordering, Grouping and limit */
-    orderBy(column: string, direction: "asc"|"desc" = "asc"): this {
+    orderBy(column: string, direction: "asc" | "desc" = "asc"): this {
         this.queryObj.orders.push({ column, direction });
 
         return this;
@@ -298,13 +299,13 @@ class Builder<T extends Model> {
         return this;
     }
 
-    having(column: string, operator: `${operatorEnum}`, value: any, boolean: "and"|"or" = "and"): this {
-        this.queryObj.havings.push({ 
-            column, 
-            operator: operator as operatorEnum, 
-            value, 
-            boolean, 
-            type: "basic" 
+    having(column: string, operator: `${operatorEnum}`, value: any, boolean: "and" | "or" = "and"): this {
+        this.queryObj.havings.push({
+            column,
+            operator: operator as operatorEnum,
+            value,
+            boolean,
+            type: "basic"
         });
 
         this.binding.having.push(value);
