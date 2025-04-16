@@ -61,8 +61,26 @@ class ColumnDefinition {
         return this;
     }
 
+    onUpdate(value: string|number|boolean): this {
+        this.setAttribute("onUpdate", value);
+
+        return this;
+    }
+
     unsigned(value: boolean = true): this {
         this.setAttribute("unsigned", value);
+
+        return this;
+    }
+
+    useCurrent(value: boolean = true): this {
+        this.setAttribute("useCurrent", value);
+
+        return this;
+    }
+
+    useCurrentOnUpdate(value: boolean = true): this {
+        this.setAttribute("useCurrentOnUpdate", value);
 
         return this;
     }

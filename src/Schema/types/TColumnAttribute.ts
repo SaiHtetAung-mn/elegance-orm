@@ -3,6 +3,7 @@ export type TColumnAttribute = {
     unique?: boolean,
     nullable?: boolean,
     default?: any,
+    onUpdate?: any,
     unsigned?: boolean,
     autoIncrement?: boolean,
     length?: number,
@@ -16,5 +17,9 @@ export type TColumnAttribute = {
 
     comment?: string,
 
-    index?: boolean
+    index?: boolean,
+
+    // For timestamps
+    useCurrent?: boolean,
+    useCurrentOnUpdate?: boolean
 }

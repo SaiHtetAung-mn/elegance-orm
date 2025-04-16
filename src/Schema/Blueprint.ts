@@ -121,6 +121,10 @@ class Blueprint {
         return this.addColumn("timestamp", column);
     }
 
+    year(column: string): ColumnDefinition {
+        return this.addColumn("year", column);
+    }
+
     json(column: string): ColumnDefinition {
         return this.addColumn("json", column);
     }

@@ -13,6 +13,7 @@ export const columnType = Object.freeze({
     BOOLEAN: "boolean",
     DATE: "date",
     DATE_TIME: "datetime",
+    YEAR: "year",
     TIME: "time",
     TIMESTAMP: "timestamp",
     JSON: "json",
