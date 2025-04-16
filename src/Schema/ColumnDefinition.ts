@@ -23,6 +23,18 @@ class ColumnDefinition {
         this.attributes[attribute] = value;
     }
 
+    public getAttribute(name: keyof TColumnAttribute) {
+        return this.attributes[name];
+    }
+
+    public getType() {
+        return this.type;
+    }
+
+    public getColumn() {
+        return this.column;
+    }
+
     /***  General methods */
 
     primary(value: boolean = true): this {

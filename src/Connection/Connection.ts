@@ -46,6 +46,10 @@ class Connection {
         throw new Error("Not implemented");
     }
 
+    async rawQuery(query: string, bindings: any[] = []): Promise<void> {
+        return await this.connection.rawQuery(query, bindings);
+    }
+
     async select(query: string, bindings: any[]): Promise<any[]> {
         return await this.connection.select(query, bindings);
     }

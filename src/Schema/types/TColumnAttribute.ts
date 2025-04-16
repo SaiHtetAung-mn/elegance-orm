@@ -10,7 +10,7 @@ export type TColumnAttribute = {
     // For floating point
     precision?: number
 
-    // Pisition
+    // Position
     after?: string,
     first?: boolean,
 

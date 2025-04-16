@@ -4,6 +4,7 @@ export const columnType = Object.freeze({
     TINY_INTEGER: "tinyInteger",
     SMALL_INTEGER: "smallInteger",
     BIG_INTEGER: "bigInteger",
+    CHAR: "char",
     STRING: "string",
     TEXT: "text",
     LONG_TEXT: "longText",

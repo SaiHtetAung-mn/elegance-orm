@@ -1,21 +1,27 @@
 import Connection from "../../Connection/Connection";
 import Blueprint from "../Blueprint";
-import QueryGrammar from "../Grammars/Grammar";
+import SchemaGrammar from "../Grammars/Grammar";
 class SchemaBuilder {
     private connection: Connection;
-    private grammar: QueryGrammar;
+    private grammar: SchemaGrammar;
 
     constructor(connection: Connection) {
         this.connection = connection;
-        this.grammar = connection.getQueryGrammar;
+        this.grammar = connection.getSchemaGrammar();
     }
 
     create(tableName: string, callback: (table: Blueprint) => void) {
-        
+        const blueprint = new Blueprint(this.connection, tableName);
+        callback(blueprint);
+        this.build(blueprint);
+    }
+
+    async build(blueprint: Blueprint): Promise<void> {
+        await blueprint.build();
     }
 
     drop(table: string) {
-
+        
     }
 
     dropIfExists(table: string) {
@@ -23,7 +29,7 @@ class SchemaBuilder {
     }
 
     table(table: string, callback: (table: Blueprint) => void) {
-
+        
     }
 
     hasTable(table: string) {
@@ -39,7 +45,7 @@ class SchemaBuilder {
     }
 
     dropColumn(column: string, table: string) {
-
+        
     }
 
     dropColumns(columns: string[], table: string) {

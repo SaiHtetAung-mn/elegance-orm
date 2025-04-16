@@ -1,7 +1,6 @@
-import { Pool, ResultSetHeader } from "mysql2/promise";
 import { Config } from "../types";
 import DbConnection from "./DbConnection";
-import mysql, { RowDataPacket } from "mysql2/promise";
+import mysql, { RowDataPacket, Pool, ResultSetHeader } from "mysql2/promise";
 
 class MySqlConnection extends DbConnection {
     private pool!: Pool;
@@ -22,7 +21,7 @@ class MySqlConnection extends DbConnection {
         });
     }
 
-    private async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[]): Promise<T | undefined> {
+    public async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[]): Promise<T | undefined> {
         const con = await this.pool.getConnection();
         try {
             const [result] = await con.query<T>(query, bindings);
@@ -43,6 +42,10 @@ class MySqlConnection extends DbConnection {
 
     disconnect(): Promise<void> {
         return Promise.resolve();
+    }
+
+    async rawQuery(query: string, bindings: any[] = []): Promise<ResultSetHeader> {
+        return (await this.runQuery<ResultSetHeader>(query,bindings)) as ResultSetHeader;
     }
 
     async select(query: string, bindings: []): Promise<any[]> {

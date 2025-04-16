@@ -1,6 +1,7 @@
 import Connection from "../Connection/Connection";
 import ColumnDefinition from "./ColumnDefinition";
 import Command from "./Command";
+import { methodExists, firstCharUppercase } from "../utils/general";
 import { columnType } from "./constants/ColumnType";
 import SchemaGrammar from "./Grammars/Grammar";
 import { TColumnAttribute } from "./types/TColumnAttribute";
@@ -18,6 +19,18 @@ class Blueprint {
         this.connection = connection;
         this.grammar = connection.getSchemaGrammar();
         this.table = table;
+    }
+
+    getTable(): string {
+        return this.table;
+    }
+
+    getCommands() {
+        return this.commands;
+    }
+
+    getColumns() {
+        return this.columns;
     }
 
     id(column: string = "id"): ColumnDefinition {
@@ -38,6 +51,10 @@ class Blueprint {
 
     smallIncrement(column: string): ColumnDefinition {
         return this.smallInteger(column, true, true);
+    }
+
+    char(column: string, length: number = 255): ColumnDefinition {
+        return this.addColumn("char", column, { length });
     }
 
     string(column: string, length: number = 255): ColumnDefinition {
@@ -147,19 +164,40 @@ class Blueprint {
          })
     }
 
+    primary(columns: string[]) {
+        this.addCommand("primary", { columns });
+    }
+
+    dropIfExists(): void {
+        this.addCommand("dropIfExists");
+    }
+
+    toSql(): string[] {
+        const sqls: string[] = [];
+
+        this.commands.forEach(cmd => {
+            const method = `compile${firstCharUppercase(cmd.name)}`;
+            const sql = methodExists(this.grammar, method) 
+                ? (this.grammar as any)[method](this, cmd)
+                : null;
+            
+            sqls.push(sql);
+        });
+
+        return sqls;
+    }
+
+    async build(): Promise<void> {
+        for (const sql of this.toSql()) {
+            await this.connection.rawQuery(sql);
+        }
+    }
+
     private createIndexName(type: string, columns: string[]): string {
         const index = `${this.table}_${columns.join('_')}_${type}`.toLowerCase();
 
         // Replace '-' and '.' with '_'
         return index.replace(/[-.]/g, '_');
-    }
-
-    toSql(): string[] {
-        return [];
-    }
-
-    async build(): Promise<void> {
-
     }
 }
 
