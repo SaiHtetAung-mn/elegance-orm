@@ -21,5 +21,8 @@ export type TColumnAttribute = {
 
     // For timestamps
     useCurrent?: boolean,
-    useCurrentOnUpdate?: boolean
+    useCurrentOnUpdate?: boolean,
+
+    // For alter
+    change?: boolean
 }

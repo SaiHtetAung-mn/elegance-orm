@@ -8,11 +8,19 @@ abstract class Grammar {
     protected modeifiers: string[] = [];
 
     protected abstract compileCreate(blueprint: Blueprint, command: Command): string;
+    protected abstract compilePrimary(blueprint: Blueprint, command: Command): string;
+    protected abstract compileUnique(blueprint: Blueprint, command: Command): string;
+    protected abstract compileIndex(blueprint: Blueprint, command: Command): string;
+    protected abstract compileDrop(blueprint: Blueprint, command: Command): string;
+    protected abstract compileDropIfExists(blueprint: Blueprint, command: Command): string;
+    protected abstract compileDropPrimary(blueprint: Blueprint, command: Command): string;
+    protected abstract compileDropUnique(blueprint: Blueprint, command: Command): string;
+    protected abstract compileDropIndex(blueprint: Blueprint, command: Command): string;
 
     // get column with type and modifiers
     protected getColumns(blueprint: Blueprint): Array<string> {
         return blueprint.getColumns().map(column => {
-            let sql = this.wrapTable(blueprint.getTable()) + " " + this.getType(column);
+            let sql = this.wrapValue(column.getColumn()) + " " + this.getType(column);
             this.addModifiers(sql, column);
 
             return sql;
@@ -113,12 +121,18 @@ abstract class Grammar {
         throw new Error("This database driver does not support the binary type.")
     }
 
+    protected hasCommand(blueprint: Blueprint, name: TCommandName): boolean {
+        return blueprint
+            .getCommands()
+            .some(cmd => cmd.name == name);
+    }
+
     protected wrapTable(value: string): string {
         return "`" + value + "`"
     }
 
     protected wrapValue(value: string): string {
-        if (value === '*') 
+        if (value === '*')
             return value;
 
         return '`' + value.replace(/`/g, '``') + '`';

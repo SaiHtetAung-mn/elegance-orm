@@ -121,6 +121,11 @@ class Blueprint {
         return this.addColumn("timestamp", column);
     }
 
+    timestamps(): void {
+        this.timestamp("created_at").nullable();
+        this.timestamp("updated_at").nullable();
+    }
+
     year(column: string): ColumnDefinition {
         return this.addColumn("year", column);
     }
@@ -133,7 +138,7 @@ class Blueprint {
         return this.addColumn("binary", column);
     }
 
-    protected addColumn(
+    private addColumn(
         type: typeof columnType[keyof typeof columnType],
         name: string,
         parameters: TColumnAttribute = {}
@@ -144,7 +149,7 @@ class Blueprint {
         return column;
     }
 
-    protected addCommand(
+    private addCommand(
         name: TCommandName,
         parameters: TCommandParameter = {}
     ): Command {
@@ -154,41 +159,99 @@ class Blueprint {
         return command;
     }
 
+    private indexCommand(name: TCommandName, columns: string[]): Command {
+        const indexName = this.createIndexName(name, columns);
+        return this.addCommand(name, { columns, indexName });
+    }
+
     // Command 
     create(): void {
         this.addCommand("create");
     }
 
-    index(columns: string[], name: string|null = null): void {
-        const index = name ?? this.createIndexName("index", columns);
-
-        this.addCommand("index", { 
-            columns,
-            index
-         })
+    index(columns: string[], name: string | null = null): void {
+        this.indexCommand("index", columns);
     }
 
     primary(columns: string[]) {
-        this.addCommand("primary", { columns });
+        this.indexCommand("primary", columns);
+    }
+
+    unique(columns: string[]): void {
+        this.indexCommand("unique", columns);
     }
 
     dropIfExists(): void {
         this.addCommand("dropIfExists");
     }
 
+    dropPrimary(): void {
+        this.addCommand("dropPrimary");
+    }
+
+    dropUnique(): void {
+        this.addCommand("dropUnique");
+    }
+
+    dropIndex(): void {
+        this.addCommand("dropIndex");
+    }
+
+    dropForeign(): void {
+        this.addCommand("dropForeign");
+    }
+
     toSql(): string[] {
+        this.addImpliedCommands();
+
         const sqls: string[] = [];
 
-        this.commands.forEach(cmd => {
+        for (const cmd of this.commands) {
+            if (cmd.shouldBeSkipped) {
+                continue;
+            }
+
             const method = `compile${firstCharUppercase(cmd.name)}`;
-            const sql = methodExists(this.grammar, method) 
+            const sql = methodExists(this.grammar, method)
                 ? (this.grammar as any)[method](this, cmd)
                 : null;
-            
+
             sqls.push(sql);
-        });
+        }
 
         return sqls;
+    }
+
+    protected addImpliedCommands(): void {
+        this.addFluentIndexes();
+
+        if (!this.creating()) {
+
+        }
+    }
+
+    protected creating(): boolean {
+        return this.commands.some(cmd => cmd.name == "create");
+    }
+
+    protected addFluentIndexes() {
+        for (const column of this.columns) {
+            for (const indexName of ["primary", "unique", "index"]) {
+                if (indexName === "primary" && column.getAttribute("autoIncrement")) {
+                    break;
+                }
+
+                if (column.getAttribute(indexName as any) === true) {
+                    (this as any)[indexName]([column.getColumn()]);
+                    column.setAttribute(indexName as any, undefined);
+                    break;
+                } else if (column.getAttribute(indexName as any) === false && column.getAttribute("change")) {
+                    (this as any)[`drop${firstCharUppercase(indexName)}`](column.getColumn());
+                    column.setAttribute(indexName as any, undefined);
+                    break;
+                }
+            }
+        }
     }
 
     async build(): Promise<void> {

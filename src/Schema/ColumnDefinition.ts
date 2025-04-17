@@ -16,7 +16,7 @@ class ColumnDefinition {
         this.attributes = attrs;
     }
 
-    private setAttribute<K extends keyof TColumnAttribute>(
+    setAttribute<K extends keyof TColumnAttribute>(
         attribute: K,
         value: TColumnAttribute[K]
     ): void {
@@ -37,31 +37,19 @@ class ColumnDefinition {
 
     /***  General methods */
 
-    primary(value: boolean = true): this {
-        this.setAttribute("primary", value);
-
-        return this;
-    }
-
-    unique(value: boolean = true): this {
-        this.setAttribute("unique", value);
-
-        return this;
-    }
-
     nullable(value: boolean = true): this {
         this.setAttribute("nullable", value);
 
         return this;
     }
 
-    default(value: string|number|boolean): this {
+    default(value: string | number | boolean): this {
         this.setAttribute("default", value);
 
         return this;
     }
 
-    onUpdate(value: string|number|boolean): this {
+    onUpdate(value: string | number | boolean): this {
         this.setAttribute("onUpdate", value);
 
         return this;
@@ -106,12 +94,24 @@ class ColumnDefinition {
         return this;
     }
 
-     /***  Index */
-     index(): this {
+    /***  Index */
+    index(): this {
         this.setAttribute("index", true);
 
         return this;
-     }
+    }
+
+    primary(value: boolean = true): this {
+        this.setAttribute("primary", value);
+
+        return this;
+    }
+
+    unique(value: boolean = true): this {
+        this.setAttribute("unique", value);
+
+        return this;
+    }
 }
 
 export default ColumnDefinition;

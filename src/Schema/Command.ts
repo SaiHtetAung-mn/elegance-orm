@@ -1,10 +1,12 @@
 import { TCommandParameter } from "./types/TCommandParameter";
 
 class Command {
-    name: string;
+    name: TCommandName;
     columns: string[] = [];
+    shouldBeSkipped: boolean = false;
+    indexName: string = "";
 
-    constructor(name: string, params: TCommandParameter = {}) {
+    constructor(name: TCommandName, params: TCommandParameter = {}) {
         this.name = name;
 
         params.columns && (this.columns = params.columns);
