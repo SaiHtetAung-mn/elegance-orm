@@ -3,11 +3,13 @@ import { firstCharUppercase, methodExists } from "../../utils/general";
 import Blueprint from "../Blueprint";
 import ColumnDefinition from "../ColumnDefinition";
 import Command from "../Command";
+import ForeignCommand from "../ForeignCommand";
 
 abstract class Grammar {
     protected modeifiers: string[] = [];
 
     protected abstract compileCreate(blueprint: Blueprint, command: Command): string;
+    protected abstract compileForeign(blueprint: Blueprint, command: ForeignCommand): string;
     protected abstract compilePrimary(blueprint: Blueprint, command: Command): string;
     protected abstract compileUnique(blueprint: Blueprint, command: Command): string;
     protected abstract compileIndex(blueprint: Blueprint, command: Command): string;

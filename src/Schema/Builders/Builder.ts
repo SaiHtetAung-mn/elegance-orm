@@ -12,6 +12,7 @@ class SchemaBuilder {
 
     create(tableName: string, callback: (table: Blueprint) => void) {
         const blueprint = new Blueprint(this.connection, tableName);
+        blueprint.create();
         callback(blueprint);
         this.build(blueprint);
     }
@@ -21,11 +22,15 @@ class SchemaBuilder {
     }
 
     drop(table: string) {
-        
+        const blueprint = new Blueprint(this.connection, table);
+        blueprint.drop();
+        this.build(blueprint);
     }
 
     dropIfExists(table: string) {
-
+        const blueprint = new Blueprint(this.connection, table);
+        blueprint.dropIfExists();
+        this.build(blueprint);
     }
 
     table(table: string, callback: (table: Blueprint) => void) {
@@ -33,7 +38,7 @@ class SchemaBuilder {
     }
 
     hasTable(table: string) {
-
+        
     }
 
     hasColumn(column: string, table: string) {
@@ -44,12 +49,8 @@ class SchemaBuilder {
 
     }
 
-    dropColumn(column: string, table: string) {
-        
-    }
-
     dropColumns(columns: string[], table: string) {
-
+        
     }
 }
 

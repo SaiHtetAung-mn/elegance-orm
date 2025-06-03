@@ -3,6 +3,7 @@ import { sprintf } from "../../utils/general";
 import Blueprint from "../Blueprint";
 import ColumnDefinition from "../ColumnDefinition";
 import Command from "../Command";
+import ForeignCommand from "../ForeignCommand";
 import Grammar from "./Grammar";
 
 class MySqlGrammar extends Grammar {
@@ -12,7 +13,7 @@ class MySqlGrammar extends Grammar {
 
     protected $serials = ['bigInteger', 'integer', 'mediumInteger', 'smallInteger', 'tinyInteger'];
 
-    compileCreate(blueprint: Blueprint, command: Command): string {
+    protected compileCreate(blueprint: Blueprint, command: Command): string {
         const tableStructures: string[] = this.getColumns(blueprint);
 
         // extract first primary command 
@@ -29,6 +30,23 @@ class MySqlGrammar extends Grammar {
             this.wrapTable(blueprint.getTable()),
             tableStructures.join(", ")
         )
+    }
+
+    protected compileForeign(blueprint: Blueprint, command: ForeignCommand): string {
+        let sql = sprintf(
+            "alter table %s add constraint %s ",
+            this.wrapTable(blueprint.getTable()),
+            this.wrapValue(command.indexName)
+        );
+
+        sql += sprintf(
+            "foreign key (%s) references %s (%s)",
+            this.columnize(command.columns),
+            this.wrapTable(command.referenceTable),
+            this.columnize([command.referenceColumn])
+        );
+
+        return sql;
     }
 
     protected compileUnique(blueprint: Blueprint, command: Command): string {

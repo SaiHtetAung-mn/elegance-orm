@@ -6,14 +6,14 @@ import { columnType } from "./constants/ColumnType";
 import SchemaGrammar from "./Grammars/Grammar";
 import { TColumnAttribute } from "./types/TColumnAttribute";
 import { TCommandParameter } from "./types/TCommandParameter";
-
+import ForeignCommand from "./ForeignCommand";
 class Blueprint {
     private connection: Connection;
     private table: string;
     private grammar: SchemaGrammar;
 
     private columns: Array<ColumnDefinition> = [];
-    private commands: Array<Command> = [];
+    private commands: Array<Command|ForeignCommand> = [];
 
     constructor(connection: Connection, table: string) {
         this.connection = connection;
@@ -31,6 +31,14 @@ class Blueprint {
 
     getColumns() {
         return this.columns;
+    }
+
+    foreign(column: string): ForeignCommand {
+        const indexName = this.createIndexName("foreign", [column]);
+        const command = new ForeignCommand({ columns: [column], indexName });
+        this.commands.push(command);
+
+        return command;
     }
 
     id(column: string = "id"): ColumnDefinition {
@@ -159,9 +167,20 @@ class Blueprint {
         return command;
     }
 
-    private indexCommand(name: TCommandName, columns: string[]): Command {
-        const indexName = this.createIndexName(name, columns);
+    private indexCommand(name: TCommandName, columns: string[], index: string | null = null): Command {
+        const indexName = index || this.createIndexName(name, columns);
         return this.addCommand(name, { columns, indexName });
+    }
+
+    private dropIndexCommand(name: TCommandName, type: TCommandName, index: string | string[]): Command {
+        let columns: string[] = [];
+        // Passed index is array of column names
+        if (Array.isArray(index)) {
+            columns = index;
+            index = this.createIndexName(type, index);
+        }
+
+        return this.indexCommand(name, columns, index);
     }
 
     // Command 
@@ -181,24 +200,32 @@ class Blueprint {
         this.indexCommand("unique", columns);
     }
 
+    drop(): void {
+        this.addCommand("drop");
+    }
+
+    dropColumns(columns: string[]): void {
+        this.addCommand("dropColumn", { columns });
+    }
+
     dropIfExists(): void {
         this.addCommand("dropIfExists");
     }
 
-    dropPrimary(): void {
-        this.addCommand("dropPrimary");
+    dropPrimary(index: string | string[]): void {
+        this.dropIndexCommand("dropPrimary", "primary", index);
     }
 
-    dropUnique(): void {
-        this.addCommand("dropUnique");
+    dropUnique(index: string | string[]): void {
+        this.dropIndexCommand("dropUnique", "unique", index);
     }
 
-    dropIndex(): void {
-        this.addCommand("dropIndex");
+    dropIndex(index: string | string[]): void {
+        this.dropIndexCommand("dropIndex", "index", index);
     }
 
-    dropForeign(): void {
-        this.addCommand("dropForeign");
+    dropForeign(index: string): void {
+        this.dropIndexCommand("dropForeign", "foreign", index);
     }
 
     toSql(): string[] {
