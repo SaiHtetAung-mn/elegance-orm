@@ -110,7 +110,8 @@
     "vary": "^1.1.2"
   },
   "scripts": {
-    "test": "mocha -r ts-node/register tests/**/*.test.ts"
+    "test": "mocha -r ts-node/register tests/**/*.test.ts",
+    "miniorm": "ts-node src/Console/cli.ts"
   },
   "author": "Sai Htet Aung",
   "license": "ISC"
