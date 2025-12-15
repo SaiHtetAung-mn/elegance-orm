@@ -160,7 +160,7 @@ class SQLiteGrammar extends Grammar {
         return "date";
     }
 
-    protected typeDateTime(column: ColumnDefinition): string {
+    protected typeDatetime(column: ColumnDefinition): string {
         if (column.getAttribute("useCurrent")) {
             column.default("CURRENT_TIMESTAMP");
         }

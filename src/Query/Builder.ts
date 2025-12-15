@@ -185,7 +185,11 @@ class Builder<T extends Model> {
         this.queryObj.limit = original.limit;
         this.queryObj.offset = original.offset;
 
-        return result.length == 0 ? 0 : result[0]["aggregate"];
+        if (result.length === 0)
+            return 0;
+
+        const aggregateValue = result[0]["aggregate"];
+        return typeof aggregateValue === "number" ? aggregateValue : Number(aggregateValue);
     }
 
     /** Projection methods */
