@@ -1,4 +1,4 @@
-type TCommandName = 
+export type TCommandName = 
     | "create" 
     | "add"
     | "index"

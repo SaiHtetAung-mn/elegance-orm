@@ -1,11 +1,11 @@
-import { Config } from "../types";
+import { ConnectionOptions } from "../types";
 import DbConnection from "./DbConnection";
 import mysql, { RowDataPacket, Pool, ResultSetHeader } from "mysql2/promise";
 
 class MySqlConnection extends DbConnection {
     private pool!: Pool;
 
-    constructor(config: Config) {
+    constructor(config: ConnectionOptions) {
         super(config);
         this.createConnectionPool();
     }
@@ -21,13 +21,13 @@ class MySqlConnection extends DbConnection {
         });
     }
 
-    public async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[]): Promise<T | undefined> {
+    public async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[]): Promise<T> {
         const con = await this.pool.getConnection();
         try {
             const [result] = await con.query<T>(query, bindings);
             return result;
-        } catch (err: any) {
-            Promise.reject(err);
+        } catch (err) {
+            throw err;
         } finally {
             con.release();
         }
@@ -41,36 +41,30 @@ class MySqlConnection extends DbConnection {
     }
 
     disconnect(): Promise<void> {
-        return Promise.resolve();
+        return this.pool.end();
     }
 
     async rawQuery(query: string, bindings: any[] = []): Promise<ResultSetHeader> {
-        return (await this.runQuery<ResultSetHeader>(query,bindings)) as ResultSetHeader;
+        return await this.runQuery<ResultSetHeader>(query, bindings);
     }
 
-    async select(query: string, bindings: []): Promise<any[]> {
+    async select(query: string, bindings: any[] = []): Promise<RowDataPacket[]> {
         const rows = await this.runQuery<RowDataPacket[]>(query, bindings);
-        return rows ?? [];
+        return rows;
     }
 
-    async insert(query: string, bindings: []): Promise<number | null> {
+    async insert(query: string, bindings: any[] = []): Promise<number | null> {
         const result = await this.runQuery<ResultSetHeader>(query, bindings);
-        if (!result) return null;
-
-        return result.insertId;
+        return result.insertId ?? null;
     }
 
     async update(query: string, bindings: any[]): Promise<number> {
         const result = await this.runQuery<ResultSetHeader>(query, bindings);
-        if (!result) return 0;
-
         return result.affectedRows;
     }
 
     async delete(query: string, bindings: any[]): Promise<any> {
         const result = await this.runQuery<ResultSetHeader>(query, bindings);
-        if (!result) return 0;
-
         return result.affectedRows;
     }
 

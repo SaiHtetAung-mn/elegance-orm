@@ -3,30 +3,32 @@ import Model from "../../Model/Model";
 import Processor from "./Processor";
 
 class SQLiteProcessor implements Processor {
-    private connection;
+    private connection: Connection;
 
     constructor() {
         this.connection = Connection.getInstance();
     }
-    processDelete(query: string, bindings: any[]): Promise<number> {
-        throw new Error("Method not implemented.");
-    }
-    processUpdate(query: string, bindings: any[]): Promise<number> {
-        throw new Error("Method not implemented.");
-    }
-    
-    processInsert<T extends Model>(query: string, bindings: any[], ModelClass: any): Promise<T[]> {
-        throw new Error("Method not implemented.");
+
+    async processSelect<T extends Model>(query: string, bindings: any[], ModelClass: any): Promise<T[]> {
+        if (typeof ModelClass?.hydrate !== "function") {
+            throw new Error("Provided ModelClass must implement a static 'hydrate' method");
+        }
+
+        const records = await this.connection.select(query, bindings);
+        return ModelClass.hydrate(records);
     }
 
-    async processSelect<T extends Model>(query: string, bindings: any[]): Promise<T[]> {
-        throw new Error();
+    async processInsertGetId(query: string, values: any[]): Promise<number | null> {
+        return await this.connection.insert(query, values);
     }
 
-    processInsertGetId(query: string, values: any[]): Promise<number> {
-        throw new Error("Method not implemented.");
+    async processUpdate(query: string, bindings: any[]): Promise<number> {
+        return await this.connection.update(query, bindings);
     }
-    
+
+    async processDelete(query: string, bindings: any[]): Promise<number> {
+        return await this.connection.delete(query, bindings);
+    }
 }
 
 export default SQLiteProcessor;
