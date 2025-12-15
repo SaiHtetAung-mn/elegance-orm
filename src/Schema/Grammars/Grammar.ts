@@ -1,14 +1,20 @@
-import Connection from "../../Connection/Connection";
-import { firstCharUppercase, methodExists } from "../../utils/general";
+import { firstCharUppercase, methodExists } from "../../utils/helpers";
 import Blueprint from "../Blueprint";
 import ColumnDefinition from "../ColumnDefinition";
 import Command from "../Command";
 import ForeignCommand from "../ForeignCommand";
+import { TCommandName } from "../types/TCommandName";
+
+export type SchemaQuery = {
+    sql: string;
+    bindings: any[];
+};
 
 abstract class Grammar {
-    protected modeifiers: string[] = [];
+    protected modifiers: string[] = [];
 
     protected abstract compileCreate(blueprint: Blueprint, command: Command): string;
+    protected abstract compileAdd(blueprint: Blueprint, command: Command): string;
     protected abstract compileForeign(blueprint: Blueprint, command: ForeignCommand): string;
     protected abstract compilePrimary(blueprint: Blueprint, command: Command): string;
     protected abstract compileUnique(blueprint: Blueprint, command: Command): string;
@@ -18,12 +24,17 @@ abstract class Grammar {
     protected abstract compileDropPrimary(blueprint: Blueprint, command: Command): string;
     protected abstract compileDropUnique(blueprint: Blueprint, command: Command): string;
     protected abstract compileDropIndex(blueprint: Blueprint, command: Command): string;
+    protected abstract compileDropForeign(blueprint: Blueprint, command: Command): string;
+    protected abstract compileDropColumn(blueprint: Blueprint, command: Command): string;
+    protected abstract compileRenameColumn(blueprint: Blueprint, command: Command): string;
+    abstract compileTableExists(table: string): SchemaQuery;
+    abstract compileColumnListing(table: string): SchemaQuery;
 
     // get column with type and modifiers
     protected getColumns(blueprint: Blueprint): Array<string> {
         return blueprint.getColumns().map(column => {
             let sql = this.wrapValue(column.getColumn()) + " " + this.getType(column);
-            this.addModifiers(sql, column);
+            sql = this.addModifiers(sql, blueprint, column);
 
             return sql;
         })
@@ -35,11 +46,11 @@ abstract class Grammar {
     }
 
     // add modifiers to each column
-    protected addModifiers(sql: string, column: ColumnDefinition): string {
-        this.modeifiers.forEach(modifier => {
+    protected addModifiers(sql: string, blueprint: Blueprint, column: ColumnDefinition): string {
+        this.modifiers.forEach(modifier => {
             const method = `modify${firstCharUppercase(modifier)}`;
             if (methodExists(this, method)) {
-                sql += (this as any)[method](column);
+                sql += (this as any)[method](blueprint, column);
             }
         })
 
@@ -138,6 +149,18 @@ abstract class Grammar {
             return value;
 
         return '`' + value.replace(/`/g, '``') + '`';
+    }
+
+    protected columnize(columns: string[]): string {
+        return columns.map(column => this.wrapValue(column)).join(", ");
+    }
+
+    protected wrapArray(values: string[]): string[] {
+        return values.map(value => this.wrapValue(value));
+    }
+
+    protected prefixArray(prefix: string, values: string[]): string[] {
+        return values.map(value => `${prefix} ${value}`);
     }
 }
 

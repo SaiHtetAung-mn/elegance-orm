@@ -10,6 +10,10 @@ class MySqlProcessor implements Processor {
     }
 
     async processSelect<T extends Model>(query: string, bindings: any[], ModelClass: any): Promise<T[]> {
+        if (typeof ModelClass?.hydrate !== "function") {
+            throw new Error("Provided ModelClass must implement a static 'hydrate' method");
+        }
+
         const records = await this.connection.select(query, bindings);
         const models = ModelClass.hydrate(records);
         return models;

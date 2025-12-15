@@ -5,21 +5,15 @@ import Command from "../Command";
 import ForeignCommand from "../ForeignCommand";
 import Grammar, { SchemaQuery } from "./Grammar";
 
-class MySqlGrammar extends Grammar {
-    protected modifiers = [
-        'Unsigned', 'Nullable', 'Default', 'OnUpdate', 'Increment', 'Comment', 'After', 'First',
-    ];
-
-    protected $serials = ['bigInteger', 'integer', 'mediumInteger', 'smallInteger', 'tinyInteger'];
+class PostgreSqlGrammar extends Grammar {
+    protected modifiers = ["Nullable", "Default"];
 
     protected compileCreate(blueprint: Blueprint, command: Command): string {
         const tableStructures: string[] = this.getColumns(blueprint);
 
-        // extract first primary command 
         const primaryCommand = blueprint.getCommands().find(cmd => cmd.name === "primary");
         if (primaryCommand) {
             const pkColumns: string = this.columnize(primaryCommand.columns);
-
             tableStructures.push(`primary key (${pkColumns})`);
             primaryCommand.shouldBeSkipped = true;
         }
@@ -28,11 +22,11 @@ class MySqlGrammar extends Grammar {
             "create table %s (%s)",
             this.wrapTable(blueprint.getTable()),
             tableStructures.join(", ")
-        )
+        );
     }
 
     protected compileAdd(blueprint: Blueprint, command: Command): string {
-        const columns = this.prefixArray("add", this.getColumns(blueprint));
+        const columns = this.prefixArray("add column", this.getColumns(blueprint));
         return sprintf(
             "alter table %s %s",
             this.wrapTable(blueprint.getTable()),
@@ -67,54 +61,65 @@ class MySqlGrammar extends Grammar {
 
     protected compileUnique(blueprint: Blueprint, command: Command): string {
         return sprintf(
-            "alter table %s add unique %s (%s)",
+            "alter table %s add constraint %s unique (%s)",
             this.wrapTable(blueprint.getTable()),
             this.wrapValue(command.indexName),
             this.columnize(command.columns)
-        )
+        );
     }
 
     protected compilePrimary(blueprint: Blueprint, command: Command): string {
         return sprintf(
-            "alter table %s add primary key %s (%s)",
+            "alter table %s add constraint %s primary key (%s)",
             this.wrapTable(blueprint.getTable()),
             this.wrapValue(command.indexName),
             this.columnize(command.columns)
-        )
+        );
     }
 
     protected compileIndex(blueprint: Blueprint, command: Command): string {
         return sprintf(
-            "alter table %s add index %s (%s)",
-            this.wrapTable(blueprint.getTable()),
+            "create index %s on %s (%s)",
             this.wrapValue(command.indexName),
+            this.wrapTable(blueprint.getTable()),
             this.columnize(command.columns)
-        )
+        );
+    }
+
+    protected compileDrop(blueprint: Blueprint, command: Command): string {
+        return `drop table ${this.wrapTable(blueprint.getTable())}`;
+    }
+
+    protected compileDropIfExists(blueprint: Blueprint, command: Command): string {
+        return `drop table if exists ${this.wrapTable(blueprint.getTable())}`;
     }
 
     protected compileDropPrimary(blueprint: Blueprint, command: Command): string {
-        return `alter table ${this.wrapTable(blueprint.getTable())} drop primary key`;
+        return sprintf(
+            "alter table %s drop constraint %s",
+            this.wrapTable(blueprint.getTable()),
+            this.wrapValue(command.indexName)
+        );
     }
 
     protected compileDropUnique(blueprint: Blueprint, command: Command): string {
         return sprintf(
-            "alter table %s drop unique %s",
+            "alter table %s drop constraint %s",
             this.wrapTable(blueprint.getTable()),
             this.wrapValue(command.indexName)
-        )
+        );
     }
 
     protected compileDropIndex(blueprint: Blueprint, command: Command): string {
         return sprintf(
-            "alter table %s drop index %s",
-            this.wrapTable(blueprint.getTable()),
+            "drop index %s",
             this.wrapValue(command.indexName)
-        )
+        );
     }
 
     protected compileDropForeign(blueprint: Blueprint, command: Command): string {
         return sprintf(
-            "alter table %s drop foreign key %s",
+            "alter table %s drop constraint %s",
             this.wrapTable(blueprint.getTable()),
             this.wrapValue(command.indexName)
         );
@@ -127,14 +132,6 @@ class MySqlGrammar extends Grammar {
             this.wrapTable(blueprint.getTable()),
             columns.join(", ")
         );
-    }
-
-    protected compileDrop(blueprint: Blueprint, command: Command): string {
-        return `drop table ${this.wrapTable(blueprint.getTable())}`;
-    }
-
-    protected compileDropIfExists(blueprint: Blueprint, command: Command): string {
-        return `drop table if exists ${this.wrapTable(blueprint.getTable())}`;
     }
 
     protected compileRenameColumn(blueprint: Blueprint, command: Command): string {
@@ -152,33 +149,33 @@ class MySqlGrammar extends Grammar {
 
     compileTableExists(table: string): SchemaQuery {
         return {
-            sql: "select * from information_schema.tables where table_schema = database() and table_name = ? limit 1",
+            sql: "select * from information_schema.tables where table_schema = current_schema() and table_name = ? limit 1",
             bindings: [table]
         };
     }
 
     compileColumnListing(table: string): SchemaQuery {
         return {
-            sql: `show columns from ${this.wrapTable(table)}`,
-            bindings: []
+            sql: "select column_name as column_name from information_schema.columns where table_name = ? and table_schema = current_schema()",
+            bindings: [table]
         };
     }
 
     /**************************** type methods ****************/
     protected typeUuid(column: ColumnDefinition): string {
-        return "char(36)";
+        return "uuid";
     }
 
     protected typeInteger(column: ColumnDefinition): string {
-        return "int"
+        return column.getAttribute("autoIncrement") ? "serial" : "integer";
     }
 
     protected typeTinyInteger(column: ColumnDefinition): string {
-        return "tinyint";
+        return "smallint";
     }
 
     protected typeBigInteger(column: ColumnDefinition): string {
-        return "bigint";
+        return column.getAttribute("autoIncrement") ? "bigserial" : "bigint";
     }
 
     protected typeSmallInteger(column: ColumnDefinition): string {
@@ -198,19 +195,19 @@ class MySqlGrammar extends Grammar {
     }
 
     protected typeLongText(column: ColumnDefinition): string {
-        return "longtext";
+        return "text";
     }
 
     protected typeFloat(column: ColumnDefinition): string {
-        return `float(${column.getAttribute("precision")})`;
+        return "real";
     }
 
     protected typeDouble(column: ColumnDefinition): string {
-        return "double";
+        return "double precision";
     }
 
     protected typeBoolean(column: ColumnDefinition): string {
-        return "tinyint(1)";
+        return "boolean";
     }
 
     protected typeDate(column: ColumnDefinition): string {
@@ -218,17 +215,11 @@ class MySqlGrammar extends Grammar {
     }
 
     protected typeDateTime(column: ColumnDefinition): string {
-        const currentVal = "CURRENT_TIMESTAMP";
-
         if (column.getAttribute("useCurrent")) {
-            column.default(currentVal);
+            column.default("CURRENT_TIMESTAMP");
         }
 
-        if (column.getAttribute("useCurrentOnUpdate")) {
-            column.onUpdate(currentVal);
-        }
-
-        return "datetime";
+        return "timestamp";
     }
 
     protected typeTime(column: ColumnDefinition): string {
@@ -236,40 +227,26 @@ class MySqlGrammar extends Grammar {
     }
 
     protected typeTimestamp(column: ColumnDefinition): string {
-        const currentVal = "CURRENT_TIMESTAMP";
-
         if (column.getAttribute("useCurrent")) {
-            column.default(currentVal);
-        }
-
-        if (column.getAttribute("useCurrentOnUpdate")) {
-            column.onUpdate(currentVal);
+            column.default("CURRENT_TIMESTAMP");
         }
 
         return "timestamp";
     }
 
     protected typeYear(column: ColumnDefinition): string {
-        return "year";
+        return "smallint";
     }
 
     protected typeJson(column: ColumnDefinition): string {
-        return "json";
+        return "jsonb";
     }
 
     protected typeBinary(column: ColumnDefinition): string {
-        return "blob";
+        return "bytea";
     }
 
     /**************************** modifier methods ****************/
-    protected modifyUnsigned(blueprint: Blueprint, column: ColumnDefinition): string {
-        if (column.getAttribute("unsigned")) {
-            return " unsigned";
-        }
-
-        return "";
-    }
-
     protected modifyNullable(blueprint: Blueprint, column: ColumnDefinition): string {
         return column.getAttribute("nullable") ? " null" : " not null";
     }
@@ -282,56 +259,17 @@ class MySqlGrammar extends Grammar {
         return "";
     }
 
-    protected modifyOnUpdate(blueprint: Blueprint, column: ColumnDefinition): string {
-        if (column.getAttribute("onUpdate") !== undefined) {
-            return ` on update ${column.getAttribute("onUpdate")}`;
+    protected wrapTable(value: string): string {
+        return this.wrapValue(value);
+    }
+
+    protected wrapValue(value: string): string {
+        if (value === "*") {
+            return value;
         }
 
-        return "";
+        return '"' + value.replace(/"/g, '""') + '"';
     }
-
-    protected modifyIncrement(blueprint: Blueprint, column: ColumnDefinition): string {
-        if (this.$serials.includes(column.getType()) && column.getAttribute("autoIncrement")) {
-            return this.hasCommand(blueprint, "primary")
-                ? " auto_increment"
-                : " auto_increment primary key"
-        }
-
-        return "";
-    }
-
-    protected modifyComment(blueprint: Blueprint, column: ColumnDefinition): string {
-        if (column.getAttribute("comment")) {
-            return " comment" + "'" + this.addSlashes(column.getAttribute("comment")) + "'";
-        }
-
-        return "";
-    }
-
-    protected modifyAfter(blueprint: Blueprint, column: ColumnDefinition): string {
-        if (column.getAttribute("after") !== undefined) {
-            return ` after ${this.wrapValue(column.getAttribute("after"))}`
-        }
-
-        return "";
-    }
-
-    protected modifyFirst(blueprint: Blueprint, column: ColumnDefinition): string {
-        if (column.getAttribute("first") !== undefined) {
-            return " first";
-        }
-
-        return "";
-    }
-
-    private addSlashes(str: string) {
-        return str
-            .replace(/\\/g, '\\\\')
-            .replace(/'/g, "\\'")
-            .replace(/"/g, '\\"')
-            .replace(/\0/g, '\\0');
-    }
-
 }
 
-export default MySqlGrammar;
+export default PostgreSqlGrammar;

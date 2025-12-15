@@ -102,17 +102,27 @@ class MySqlGrammar extends Grammar {
             return "";
         }
 
-        const whereClauses = wheres.map((where) => {
-            switch (where.type) {
-                case "basic": return this.whereBasic(where);
-                case "in": return this.whereIn(where);
-                case "between": return this.whereBetween(where);
-                case "null": return this.whereNull(where);
-                case "not_null": return this.whereNotNull(where);
-            }
-        });
+        const whereClauses = wheres
+            .map((where) => this.compileWhereComponent(where))
+            .filter((clause): clause is string => Boolean(clause));
+
+        if (whereClauses.length === 0)
+            return "";
 
         return ["where", this.removeLeadingWhereBoolean(whereClauses.join(" "))].join(" ");
+    }
+
+    protected compileWhereComponent(where: WhereObjType): string {
+        switch (where.type) {
+            case "basic": return this.whereBasic(where);
+            case "in": return this.whereIn(where);
+            case "between": return this.whereBetween(where);
+            case "not_between": return this.whereNotBetween(where);
+            case "null": return this.whereNull(where);
+            case "not_null": return this.whereNotNull(where);
+            default:
+                throw new Error(`Unsupported where type: ${where.type}`);
+        }
     }
 
     protected removeLeadingWhereBoolean(whereQuery: string): string {
@@ -220,23 +230,28 @@ class MySqlGrammar extends Grammar {
             return "";
         }
 
-        const whereClauses = havings.map((where) => {
-            switch (where.type) {
-                case "basic": return this.whereBasic(where);
-                case "in": return this.whereIn(where);
-                case "between": return this.whereBetween(where);
-                case "null": return this.whereNull(where);
-                case "not_null": return this.whereNotNull(where);
-            }
-        });
+        const whereClauses = havings
+            .map((where) => this.compileWhereComponent(where))
+            .filter((clause): clause is string => Boolean(clause));
+
+        if (whereClauses.length === 0)
+            return "";
 
         return ["having", this.removeLeadingWhereBoolean(whereClauses.join(" "))].join(" ");
     }
 
     compileLimit(builder: Builder<any>): string {
-        const limit = builder.getQueryObj().limit;
-        if (limit === null)
+        const { limit, offset } = builder.getQueryObj();
+        if (limit === null && offset === null)
             return "";
+
+        if (limit === null && offset !== null) {
+            return `limit 18446744073709551615 offset ${offset}`;
+        }
+
+        if (offset !== null) {
+            return `limit ${limit} offset ${offset}`;
+        }
 
         return ["limit", limit].join(" ");
     }

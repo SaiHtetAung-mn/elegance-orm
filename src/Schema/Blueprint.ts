@@ -1,11 +1,12 @@
 import Connection from "../Connection/Connection";
 import ColumnDefinition from "./ColumnDefinition";
 import Command from "./Command";
-import { methodExists, firstCharUppercase } from "../utils/general";
+import { methodExists, firstCharUppercase } from "../utils/helpers";
 import { columnType } from "./constants/ColumnType";
 import SchemaGrammar from "./Grammars/Grammar";
 import { TColumnAttribute } from "./types/TColumnAttribute";
 import { TCommandParameter } from "./types/TCommandParameter";
+import { TCommandName } from "./types/TCommandName";
 import ForeignCommand from "./ForeignCommand";
 class Blueprint {
     private connection: Connection;
@@ -189,15 +190,15 @@ class Blueprint {
     }
 
     index(columns: string[], name: string | null = null): void {
-        this.indexCommand("index", columns);
+        this.indexCommand("index", columns, name);
     }
 
-    primary(columns: string[]) {
-        this.indexCommand("primary", columns);
+    primary(columns: string[], name: string | null = null) {
+        this.indexCommand("primary", columns, name);
     }
 
-    unique(columns: string[]): void {
-        this.indexCommand("unique", columns);
+    unique(columns: string[], name: string | null = null): void {
+        this.indexCommand("unique", columns, name);
     }
 
     drop(): void {
@@ -224,8 +225,12 @@ class Blueprint {
         this.dropIndexCommand("dropIndex", "index", index);
     }
 
-    dropForeign(index: string): void {
+    dropForeign(index: string | string[]): void {
         this.dropIndexCommand("dropForeign", "foreign", index);
+    }
+
+    renameColumn(from: string, to: string): void {
+        this.addCommand("renameColumn", { from, to });
     }
 
     toSql(): string[] {
@@ -252,13 +257,17 @@ class Blueprint {
     protected addImpliedCommands(): void {
         this.addFluentIndexes();
 
-        if (!this.creating()) {
-
+        if (this.columns.length > 0 && !this.creating() && !this.hasCommand("add")) {
+            this.commands.unshift(new Command("add"));
         }
     }
 
     protected creating(): boolean {
-        return this.commands.some(cmd => cmd.name == "create");
+        return this.hasCommand("create");
+    }
+
+    protected hasCommand(name: TCommandName): boolean {
+        return this.commands.some(cmd => cmd.name === name);
     }
 
     protected addFluentIndexes() {

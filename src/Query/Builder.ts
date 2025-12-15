@@ -62,7 +62,10 @@ class Builder<T extends Model> {
     }
 
     async first(): Promise<T | null> {
-        const data = await this.limit(1).get();
+        const previousLimit = this.queryObj.limit;
+        this.limit(1);
+        const data = await this.get();
+        this.queryObj.limit = previousLimit;
         return data.length > 0 ? data[0] : null;
     }
 
@@ -70,31 +73,36 @@ class Builder<T extends Model> {
         const query = this.grammar.compileSelect(this);
         const binding = [...this.binding.where, ...this.binding.having];
         const data: T[] = await this.processor.processSelect<T>(query, binding, this.model.constructor);
+        this.resetBindings();
         return data;
     }
 
     async insertGetId(attributes: Record<string, any>): Promise<number | null> {
-        const values: any[] = Object.values(attributes);
         const columns: string[] = Object.keys(attributes);
+        const values: any[] = columns.map(column => (attributes as Record<string, any>)[column]);
         const query: string = this.grammar.compileInsert(this, columns);
 
         return await this.processor.processInsertGetId(query, values);
     }
 
     async update(attributes: Partial<T>): Promise<number> {
-        const values: any[] = Object.values(attributes);
-        const columns: string[] = Object.keys(attributes);
+        const columns: string[] = Object.keys(attributes as Record<string, any>);
+        const values: any[] = columns.map(column => (attributes as Record<string, any>)[column]);
         const sql: string = this.grammar.compileUpdate(this, columns);
         const bindings: any[] = [...values, ...this.binding.where];
 
-        return await this.processor.processUpdate(sql, bindings);
+        const affected = await this.processor.processUpdate(sql, bindings);
+        this.resetBindings();
+        return affected;
     }
 
     async delete(): Promise<number> {
         const sql: string = this.grammar.compileDelete(this);
         const bindings: any[] = [...this.binding.where];
 
-        return await this.processor.processDelete(sql, bindings);
+        const deleted = await this.processor.processDelete(sql, bindings);
+        this.resetBindings();
+        return deleted;
     }
 
     /** Aggregation methods */
@@ -135,23 +143,59 @@ class Builder<T extends Model> {
         return this;
     }
 
-    private async aggregate(functionName: "count" | "max" | "min" | "avg" | "sum", column: string): Promise<number> {
-        this.setAggregate(functionName, column);
+    private normalizeColumns(columns: Array<string | string[]>): string[] {
+        const normalized: string[] = [];
+        columns.forEach((column) => {
+            if (Array.isArray(column)) {
+                normalized.push(...column);
+            } else if (column) {
+                normalized.push(column);
+            }
+        });
 
+        return normalized;
+    }
+
+    private resetBindings(): void {
+        this.binding = { where: [], having: [] };
+    }
+
+    private async aggregate(functionName: "count" | "max" | "min" | "avg" | "sum", column: string): Promise<number> {
+        const original = {
+            aggregate: this.queryObj.aggregate,
+            selects: [...this.queryObj.selects],
+            orders: [...this.queryObj.orders],
+            limit: this.queryObj.limit,
+            offset: this.queryObj.offset
+        };
+
+        this.setAggregate(functionName, column);
         this.queryObj.selects = [];
         this.queryObj.orders = [];
         this.queryObj.limit = null;
+        this.queryObj.offset = null;
 
         const sql = this.grammar.compileSelect(this);
         const result = await this.connection.select(sql, [...this.binding.where, ...this.binding.having]);
+        this.resetBindings();
+
+        this.queryObj.aggregate = original.aggregate;
+        this.queryObj.selects = original.selects;
+        this.queryObj.orders = original.orders;
+        this.queryObj.limit = original.limit;
+        this.queryObj.offset = original.offset;
 
         return result.length == 0 ? 0 : result[0]["aggregate"];
     }
 
     /** Projection methods */
-    select(columns: string[]): this {
-        this.queryObj.selects.push(...columns);
+    select(...columns: Array<string | string[]>): this {
+        this.queryObj.selects.push(...this.normalizeColumns(columns));
         return this;
+    }
+
+    addSelect(...columns: Array<string | string[]>): this {
+        return this.select(...columns);
     }
 
     distinct(): this {
@@ -176,9 +220,10 @@ class Builder<T extends Model> {
     }
 
     orWhere(column: string, operator: `${operatorEnum}` | null, value: any): this {
+        const resolvedOperator = (operator ?? operatorEnum.EQUAL) as `${operatorEnum}`;
         this.queryObj.wheres.push({
             column,
-            operator: operator as operatorEnum,
+            operator: resolvedOperator as operatorEnum,
             value,
             boolean: "or",
             type: "basic"
@@ -190,20 +235,15 @@ class Builder<T extends Model> {
     }
 
     andWhere(column: string, operator: `${operatorEnum}` | null, value: any): this {
-        this.queryObj.wheres.push({
-            column,
-            operator: operator as operatorEnum,
-            value,
-            boolean: "and",
-            type: "basic"
-        });
-
-        this.binding.where.push(value);
-
-        return this;
+        const resolvedOperator = (operator ?? operatorEnum.EQUAL) as `${operatorEnum}`;
+        return this.where(column, resolvedOperator, value, "and");
     }
 
     whereIn(column: string, value: any[]): this {
+        if (!Array.isArray(value) || value.length === 0) {
+            throw new Error("The 'whereIn' method requires a non-empty array of values");
+        }
+
         this.queryObj.wheres.push({
             column,
             operator: operatorEnum.IN,
@@ -218,6 +258,10 @@ class Builder<T extends Model> {
     }
 
     whereNotIn(column: string, value: any[]): this {
+        if (!Array.isArray(value) || value.length === 0) {
+            throw new Error("The 'whereNotIn' method requires a non-empty array of values");
+        }
+
         this.queryObj.wheres.push({
             column,
             operator: operatorEnum.NOT_IN,
@@ -232,6 +276,10 @@ class Builder<T extends Model> {
     }
 
     whereBetween(column: string, values: [value1: any, value2: any]): this {
+        if (!Array.isArray(values) || values.length !== 2) {
+            throw new Error("The 'whereBetween' method requires exactly two values");
+        }
+
         this.queryObj.wheres.push({
             column,
             operator: operatorEnum.BETWEEN,
@@ -246,12 +294,16 @@ class Builder<T extends Model> {
     }
 
     whereNotBetween(column: string, values: [value1: any, value2: any]): this {
+        if (!Array.isArray(values) || values.length !== 2) {
+            throw new Error("The 'whereNotBetween' method requires exactly two values");
+        }
+
         this.queryObj.wheres.push({
             column,
             operator: operatorEnum.NOT_BETWEEN,
             value: values,
             boolean: "and",
-            type: "between"
+            type: "not_between"
         });
 
         this.binding.where.push(...values);
@@ -283,9 +335,6 @@ class Builder<T extends Model> {
         return this;
     }
 
-    // Join methods
-    //join(table: string, localId: any, $operator, $second = null, $type = 'inner', $where = false)
-
     /** Ordering, Grouping and limit */
     orderBy(column: string, direction: "asc" | "desc" = "asc"): this {
         this.queryObj.orders.push({ column, direction });
@@ -293,8 +342,8 @@ class Builder<T extends Model> {
         return this;
     }
 
-    groupBy(columns: string[]): this {
-        this.queryObj.groups.push(...columns);
+    groupBy(...columns: Array<string | string[]>): this {
+        this.queryObj.groups.push(...this.normalizeColumns(columns));
 
         return this;
     }
@@ -313,10 +362,28 @@ class Builder<T extends Model> {
         return this;
     }
 
+    offset(value: number): this {
+        this.queryObj.offset = value;
+
+        return this;
+    }
+
     limit(value: number): this {
         this.queryObj.limit = value;
 
         return this;
+    }
+
+    orderByDesc(column: string): this {
+        return this.orderBy(column, "desc");
+    }
+
+    latest(column: string = this.queryObj.primaryKey): this {
+        return this.orderBy(column, "desc");
+    }
+
+    oldest(column: string = this.queryObj.primaryKey): this {
+        return this.orderBy(column, "asc");
     }
 }
 

@@ -1,7 +1,7 @@
 import operatorEnum from "../enums/operator"
 
 export type WhereObjType = {
-    type: "basic"|"in"|"between"|"null"|"not_null", 
+    type: "basic"|"in"|"between"|"not_between"|"null"|"not_null", 
     column: string, 
     operator: operatorEnum|null, 
     value: any, 

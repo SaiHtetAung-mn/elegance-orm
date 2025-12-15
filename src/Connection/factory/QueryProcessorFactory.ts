@@ -2,10 +2,10 @@ import MySqlProcessor from "../../Query/Processors/MySqlProcessor";
 import PostgreSqlProcessor from "../../Query/Processors/PostgreSqlProcessor";
 import Processor from "../../Query/Processors/Processor";
 import SQLiteProcessor from "../../Query/Processors/SQLiteProcessor";
-import { Config } from "../types";
+import { ConnectionOptions } from "../types";
 
 class QueryProcessorFactory {
-    public static getProcessor(config: Config): Processor {
+    public static getProcessor(config: ConnectionOptions): Processor {
         switch (config.driver) {
             case "mysql": return new MySqlProcessor();
             case "postgresql": return new PostgreSqlProcessor();

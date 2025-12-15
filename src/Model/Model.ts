@@ -1,64 +1,51 @@
 import Builder from "../Query/Builder";
-import { Exclude } from "class-transformer";
 import MassAssignmentException from "../Exception/MassAssignmentException";
 
 class Model {
     [x: string]: any;
 
-    @Exclude()
     protected _attributes: Record<string, any> = {};
 
-    @Exclude()
     protected _original: Record<string, any> = {};
 
-    @Exclude()
     protected _dirty: Record<string, any> = {};
 
-    @Exclude()
     protected table: string = "";
 
-    @Exclude()
     protected primaryKey: string = "id";
-
-    @Exclude()
+    
     protected fillable: string[] = [];
-
-    @Exclude()
+    
     protected guarded: string[] = ["*"];
-
-    @Exclude()
+    
     protected hidden: string[] = [];
-
-    @Exclude()
+    
     protected timestamps: boolean = true;
-
-    @Exclude()
+    
     protected readonly CREATED_AT: string = "created_at";
-
-    @Exclude()
+    
     protected readonly UPDATED_AT: string = "updated_at";
-
-    @Exclude()
+    
     protected isNew: boolean = true;
 
     constructor() {
         return new Proxy(this, {
-            get(target: Model, prop: string) {
-                if (prop in target) {
-                    return target[prop];
+            get(target: Model, prop: string | symbol, receiver: any) {
+                if (typeof prop === "string" && !(prop in target)) {
+                    return target.getAttribute(prop);
                 }
 
-                return target.getAttribute(prop);
+                return Reflect.get(target, prop, receiver);
             },
-            set(target: Model, prop: string, value: any) {
-                if (prop in target) {
-                    target[prop] = value;
-                } else if (target.isFillable(prop)) {
-                    if (!target.isNew) {
-                        target.setDirty(prop, value);
-                    }
+            set(target: Model, prop: string | symbol, value: any, receiver: any) {
+                if (typeof prop !== "string") {
+                    return Reflect.set(target, prop, value, receiver);
+                }
 
-                    target.setAttribute(prop, value);
+                if (prop in target) {
+                    (target as any)[prop] = value;
+                } else if (target.isFillable(prop)) {
+                    target.writeAttribute(prop, value);
                 }
 
                 return true;
@@ -70,8 +57,28 @@ class Model {
         return this._attributes[key];
     }
 
+    protected cloneValue<T>(value: T): T {
+        if (value instanceof Date) {
+            return new Date(value.getTime()) as unknown as T;
+        }
+
+        if (Array.isArray(value)) {
+            return (value.map(item => this.cloneValue(item)) as unknown) as T;
+        }
+
+        if (value && typeof value === "object") {
+            const cloned: Record<string, any> = {};
+            Object.keys(value as Record<string, any>).forEach(key => {
+                cloned[key] = this.cloneValue((value as Record<string, any>)[key]);
+            });
+            return cloned as T;
+        }
+
+        return value;
+    }
+
     protected setAttribute(key: string, value: any) {
-        this._attributes[key] = value;
+        this._attributes[key] = this.cloneValue(value);
     }
 
     protected getOriginal(key?: string) {
@@ -82,7 +89,17 @@ class Model {
     }
 
     protected setOriginal(attributes: Record<string, any>) {
-        this._original = attributes;
+        const cloned: Record<string, any> = {};
+        Object.keys(attributes).forEach(key => {
+            cloned[key] = this.cloneValue(attributes[key]);
+        });
+
+        this._original = cloned;
+        this._dirty = {};
+    }
+
+    protected syncOriginalAttributes(): void {
+        this.setOriginal(this._attributes);
     }
 
     protected getDirty(key?: string) {
@@ -93,16 +110,32 @@ class Model {
     }
 
     protected setDirty(key: string, value: any) {
+        if (this.getOriginal(key) === value) {
+            delete this._dirty[key];
+            return;
+        }
+
         this._dirty[key] = value;
+    }
+
+    protected writeAttribute(column: string, value: any): void {
+        if (!this.isNew) {
+            this.setDirty(column, value);
+        }
+
+        this.setAttribute(column, value);
     }
 
     public fill(attributes: Record<string, any>) {
         const totallyGuarded: boolean = this.isTotallyGuarded();
 
-        Object.entries(this.filterFillable(attributes)).forEach(([column, value]) => {
+        Object.keys(attributes).forEach((column: string) => {
             if (this.isFillable(column)) {
-                this.setAttribute(column, value);
-            } else if (totallyGuarded) {
+                this.writeAttribute(column, attributes[column]);
+                return;
+            }
+
+            if (totallyGuarded) {
                 throw new MassAssignmentException(
                     `Add ${column} to fillable property to allow mass assignment on ${this.constructor.name}.`
                 );
@@ -120,19 +153,6 @@ class Model {
         return this.fillable.length === 0;
     }
 
-    protected filterFillable(attributes: Record<string, any>): Record<string, any> {
-        const newAttributes = Object.assign({}, attributes);
-
-        if (this.fillable.length > 0 && !this.isTotallyGuarded()) {
-            Object.keys(newAttributes).forEach(key => {
-                if (!this.fillable.includes(key))
-                    delete newAttributes[key];
-            });
-        }
-
-        return newAttributes;
-    }
-
     protected isGuarded(column: string): boolean {
         if (this.guarded.length === 0) {
             return false;
@@ -146,22 +166,26 @@ class Model {
     }
 
     protected isDirty(): boolean {
-        if (this.isNew || this.getDirty().length === 0)
+        if (this.isNew)
             return false;
 
-        return Object.keys(this.getDirty()).some((key: string) => this.getOriginal(key) !== this.getDirty(key));
+        return Object.keys(this._dirty).length > 0;
     }
 
     static query<T extends Model>(this: { new(): T }): Builder<T> {
         const modelInstance = new this();
-        return new Builder<T>(modelInstance);
+        return modelInstance.newQuery();
+    }
+
+    public newQuery(): Builder<this> {
+        return new Builder<this>(this);
     }
 
     static hydrate<T extends Model>(this: new () => T, records: Record<string, any>[]): T[] {
         return records.map(record => {
             const newInstance = new this();
-            newInstance._attributes = record;
-            newInstance.setOriginal(record);
+            newInstance._attributes = { ...record };
+            newInstance.setOriginal(newInstance._attributes);
             newInstance.isNew = false;
             return newInstance;
         }) as T[];
@@ -179,11 +203,14 @@ class Model {
         const instance = new (this.constructor as typeof Model)();
         instance.fill(attributes);
         instance.isNew = isNew;
+        if (!isNew) {
+            instance.syncOriginalAttributes();
+        }
         return instance as this;
     }
 
     async save(): Promise<boolean> {
-        const builder = new Builder(this);
+        const builder = this.newQuery();
         let saved = false;
 
         if (!this.isNew) {
@@ -201,9 +228,12 @@ class Model {
 
         const id: number | null = await builder.insertGetId(this._attributes);
 
-        id && this.setAttribute(this.primaryKey, id);
+        if (id !== null && id !== undefined) {
+            this.setAttribute(this.primaryKey, id);
+        }
 
         this.isNew = false;
+        this.syncOriginalAttributes();
         return true;
     }
 
@@ -217,33 +247,22 @@ class Model {
             .where(this.primaryKey, "=", this.getAttribute(this.primaryKey))
             .update(this.getDirty() as Partial<this>);
 
+        this.syncOriginalAttributes();
         return true;
     }
 
     protected updateTimestamps() {
         if (this.timestamps) {
-            if (!(this as Record<string, any>)[this.CREATED_AT] && this.isNew) {
-                (this as Record<string, any>)[this.CREATED_AT] = this.formatDateToMySQL(new Date)
+            if (!this.getAttribute(this.CREATED_AT) && this.isNew) {
+                this.writeAttribute(this.CREATED_AT, this.currentTimestamp());
             }
 
-            (this as Record<string, any>)[this.UPDATED_AT] = this.formatDateToMySQL(new Date);
+            this.writeAttribute(this.UPDATED_AT, this.currentTimestamp());
         }
     }
 
-    protected formatDateToMySQL(date: Date) {
-        const d = new Date(date);
-
-        // Pad single digit numbers with leading zero
-        const pad = (num: number, size: number) => num.toString().padStart(size, '0');
-
-        const year = d.getFullYear();
-        const month = pad(d.getMonth() + 1, 2);
-        const day = pad(d.getDate(), 2);
-        const hours = pad(d.getHours(), 2);
-        const minutes = pad(d.getMinutes(), 2);
-        const seconds = pad(d.getSeconds(), 2);
-
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    protected currentTimestamp(): string {
+        return new Date().toISOString().replace('T', ' ').substring(0, 19);
     }
 
     getTable(): string {

@@ -5,65 +5,134 @@ import DbConnection from "./drivers/DbConnection";
 import ConnectionFactory from "./factory/ConnectionFactory";
 import QueryGrammarFactory from "./factory/QueryGrammarFactory";
 import QueryProcessorFactory from "./factory/QueryProcessorFactory";
-import { Config } from "./types";
-
-let _instance: Connection | null = null;
+import SchemaGrammarFactory from "./factory/SchemaGrammarFactory";
+import { ConnectionOptions } from "./types";
 
 class Connection {
-    private connection!: DbConnection;
-    private config!: Config;
+    private connection: DbConnection | null = null;
+    private config: ConnectionOptions | null = null;
+    private queryGrammar: QueryGrammar | null = null;
+    private queryProcessor: QueryProcessor | null = null;
+    private schemaGrammar: SchemaGrammar | null = null;
 
-    private constructor() {
-        throw new Error("Cannot create connection instance directly");
+    private constructor() { }
+
+    public static async initialize(config: ConnectionOptions, callback?: () => void): Promise<Connection> {
+        if (!this._instance) {
+            this._instance = new Connection();
+        }
+
+        await this._instance.bootstrap(config, callback);
+
+        return this._instance;
     }
 
     public static getInstance(): Connection {
-        if (_instance === null) {
-            _instance = new Connection();
+        if (!this._instance) {
+            throw new Error("Connection has not been initialized. Call Connection.initialize first.");
         }
 
-        return _instance;
+        return this._instance;
     }
 
-    public initialize(config: Config, callback: () => void) {
+    public static isInitialized(): boolean {
+        return this._instance !== null;
+    }
+
+    public static setInstance(instance: Connection | null): void {
+        this._instance = instance;
+    }
+
+    public static async disconnect(): Promise<void> {
+        if (this._instance) {
+            await this._instance.teardown();
+            this._instance = null;
+        }
+    }
+
+    private static _instance: Connection | null = null;
+
+    private async bootstrap(config: ConnectionOptions, callback?: () => void): Promise<void> {
+        if (this.connection) {
+            await this.teardown();
+        }
+
         this.config = config;
         this.connection = ConnectionFactory.getConnection(this.config);
-        this.connection
-            .connect()
-            .then(callback)
-            .catch((err: any) => { throw err });
+        await this.connection.connect();
+        callback?.();
+    }
+
+    private async teardown(): Promise<void> {
+        if (this.connection) {
+            await this.connection.disconnect();
+        }
+
+        this.connection = null;
+        this.queryGrammar = null;
+        this.queryProcessor = null;
+        this.schemaGrammar = null;
+        this.config = null;
+    }
+
+    private requireConnection(): DbConnection {
+        if (!this.connection) {
+            throw new Error("Connection has not been initialized. Call Connection.initialize first.");
+        }
+
+        return this.connection;
+    }
+
+    private requireConfig(): ConnectionOptions {
+        if (!this.config) {
+            throw new Error("Connection has not been initialized. Call Connection.initialize first.");
+        }
+
+        return this.config;
     }
 
     getQueryGrammar(): QueryGrammar {
-        return QueryGrammarFactory.getQueryGrammar(this.config);
+        if (!this.queryGrammar) {
+            this.queryGrammar = QueryGrammarFactory.getQueryGrammar(this.requireConfig());
+        }
+
+        return this.queryGrammar;
     }
 
     getQueryProcessor(): QueryProcessor {
-        return QueryProcessorFactory.getProcessor(this.config);
+        if (!this.queryProcessor) {
+            this.queryProcessor = QueryProcessorFactory.getProcessor(this.requireConfig());
+        }
+
+        return this.queryProcessor;
     }
 
     getSchemaGrammar(): SchemaGrammar {
-        throw new Error("Not implemented");
+        if (!this.schemaGrammar) {
+            this.schemaGrammar = SchemaGrammarFactory.getSchemaGrammar(this.requireConfig());
+        }
+
+        return this.schemaGrammar;
     }
 
-    async rawQuery(query: string, bindings: any[] = []): Promise<void> {
-        return await this.connection.rawQuery(query, bindings);
+    async rawQuery<T = any>(query: string, bindings: any[] = []): Promise<T> {
+        return await this.requireConnection().rawQuery(query, bindings);
     }
 
     async select(query: string, bindings: any[]): Promise<any[]> {
-        return await this.connection.select(query, bindings);
+        return await this.requireConnection().select(query, bindings);
     }
 
     async insert(query: string, bindings: any[]): Promise<any> {
-        return await this.connection.insert(query, bindings);
+        return await this.requireConnection().insert(query, bindings);
     }
 
     async update(query: string, bindings: any[]): Promise<number> {
-        return await this.connection.update(query, bindings);
+        return await this.requireConnection().update(query, bindings);
     }
 
     async delete(query: string, bindings: any[]): Promise<number> {
-        return await this.connection.delete(query, bindings);
+        return await this.requireConnection().delete(query, bindings);
     }
 }
 

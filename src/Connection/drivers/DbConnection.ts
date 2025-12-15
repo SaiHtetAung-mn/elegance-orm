@@ -1,9 +1,9 @@
-import { Config } from "../types";
+import { ConnectionOptions } from "../types";
 
 abstract class DbConnection {
-    protected config: Config;
+    protected config: ConnectionOptions;
 
-    constructor(config: Config) {
+    constructor(config: ConnectionOptions) {
         this.config = config;
     }
 
