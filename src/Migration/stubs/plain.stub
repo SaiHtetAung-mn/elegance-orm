@@ -1,0 +1,11 @@
+import Migration from "../../src/Schema/Migration";
+
+export default class {{ class }} extends Migration {
+    async up(): Promise<void> {
+        // Define schema changes here
+    }
+
+    async down(): Promise<void> {
+        // Revert schema changes here
+    }
+}
