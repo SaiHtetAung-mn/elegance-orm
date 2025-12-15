@@ -217,7 +217,7 @@ class MySqlGrammar extends Grammar {
         return "date";
     }
 
-    protected typeDateTime(column: ColumnDefinition): string {
+    protected typeDatetime(column: ColumnDefinition): string {
         const currentVal = "CURRENT_TIMESTAMP";
 
         if (column.getAttribute("useCurrent")) {

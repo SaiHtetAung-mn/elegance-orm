@@ -37,7 +37,7 @@ class PostgreSqlGrammar extends Grammar {
     protected compileForeign(blueprint: Blueprint, command: ForeignCommand): string {
         let sql = sprintf(
             "alter table %s add constraint %s ",
-            this.wrapTable(blueprint.getTable()),
+            this.wrapTable(command.table ?? blueprint.getTable()),
             this.wrapValue(command.indexName)
         );
 
@@ -62,7 +62,7 @@ class PostgreSqlGrammar extends Grammar {
     protected compileUnique(blueprint: Blueprint, command: Command): string {
         return sprintf(
             "alter table %s add constraint %s unique (%s)",
-            this.wrapTable(blueprint.getTable()),
+            this.wrapTable(command.table ?? blueprint.getTable()),
             this.wrapValue(command.indexName),
             this.columnize(command.columns)
         );
@@ -71,7 +71,7 @@ class PostgreSqlGrammar extends Grammar {
     protected compilePrimary(blueprint: Blueprint, command: Command): string {
         return sprintf(
             "alter table %s add constraint %s primary key (%s)",
-            this.wrapTable(blueprint.getTable()),
+            this.wrapTable(command.table ?? blueprint.getTable()),
             this.wrapValue(command.indexName),
             this.columnize(command.columns)
         );
@@ -81,7 +81,7 @@ class PostgreSqlGrammar extends Grammar {
         return sprintf(
             "create index %s on %s (%s)",
             this.wrapValue(command.indexName),
-            this.wrapTable(blueprint.getTable()),
+            this.wrapTable(command.table ?? blueprint.getTable()),
             this.columnize(command.columns)
         );
     }
@@ -97,7 +97,7 @@ class PostgreSqlGrammar extends Grammar {
     protected compileDropPrimary(blueprint: Blueprint, command: Command): string {
         return sprintf(
             "alter table %s drop constraint %s",
-            this.wrapTable(blueprint.getTable()),
+            this.wrapTable(command.table ?? blueprint.getTable()),
             this.wrapValue(command.indexName)
         );
     }
@@ -105,7 +105,7 @@ class PostgreSqlGrammar extends Grammar {
     protected compileDropUnique(blueprint: Blueprint, command: Command): string {
         return sprintf(
             "alter table %s drop constraint %s",
-            this.wrapTable(blueprint.getTable()),
+            this.wrapTable(command.table ?? blueprint.getTable()),
             this.wrapValue(command.indexName)
         );
     }
@@ -120,7 +120,7 @@ class PostgreSqlGrammar extends Grammar {
     protected compileDropForeign(blueprint: Blueprint, command: Command): string {
         return sprintf(
             "alter table %s drop constraint %s",
-            this.wrapTable(blueprint.getTable()),
+            this.wrapTable(command.table ?? blueprint.getTable()),
             this.wrapValue(command.indexName)
         );
     }
@@ -214,7 +214,7 @@ class PostgreSqlGrammar extends Grammar {
         return "date";
     }
 
-    protected typeDateTime(column: ColumnDefinition): string {
+    protected typeDatetime(column: ColumnDefinition): string {
         if (column.getAttribute("useCurrent")) {
             column.default("CURRENT_TIMESTAMP");
         }

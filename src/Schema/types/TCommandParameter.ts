@@ -3,4 +3,5 @@ export type TCommandParameter = {
     indexName?: string;
     from?: string;
     to?: string;
+    table?: string;
 }

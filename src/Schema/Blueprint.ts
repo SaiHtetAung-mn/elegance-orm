@@ -36,7 +36,7 @@ class Blueprint {
 
     foreign(column: string): ForeignCommand {
         const indexName = this.createIndexName("foreign", [column]);
-        const command = new ForeignCommand({ columns: [column], indexName });
+        const command = new ForeignCommand({ columns: [column], indexName, table: this.table });
         this.commands.push(command);
 
         return command;
@@ -273,7 +273,7 @@ class Blueprint {
     protected addFluentIndexes() {
         for (const column of this.columns) {
             for (const indexName of ["primary", "unique", "index"]) {
-                if (indexName === "primary" && column.getAttribute("autoIncrement")) {
+                if (indexName === "primary" && column.getAttribute("autoIncrement") && methodExists(this.grammar, "modifyIncrement")) {
                     break;
                 }
 

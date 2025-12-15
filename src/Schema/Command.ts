@@ -8,6 +8,7 @@ class Command {
     indexName: string = "";
     from?: string;
     to?: string;
+    table?: string;
 
     constructor(name: TCommandName, params: TCommandParameter = {}) {
         this.name = name;
@@ -16,6 +17,7 @@ class Command {
         params.indexName && (this.indexName = params.indexName);
         params.from && (this.from = params.from);
         params.to && (this.to = params.to);
+        params.table && (this.table = params.table);
     }
 }
 

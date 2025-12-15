@@ -110,7 +110,7 @@ abstract class Grammar {
         throw new Error("This database driver does not support the date type.")
     }
 
-    protected typeDateTime(column: ColumnDefinition): string {
+    protected typeDatetime(column: ColumnDefinition): string {
         throw new Error("This database driver does not support the date-time type.")
     }
 
