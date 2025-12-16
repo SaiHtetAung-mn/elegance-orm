@@ -1,14 +1,14 @@
 import Connection from "../Connection/Connection";
+import { ConnectionOptions } from "../Connection/types";
 import Command from "./Command";
 import { getConfig } from "./config";
-import { MiniOrmConfig } from "../Migration/types";
 
 abstract class DatabaseCommand extends Command {
-    protected config!: MiniOrmConfig;
+    protected config!: ConnectionOptions;
 
     async initialize(): Promise<void> {
         this.config = getConfig();
-        await Connection.initialize(this.config.connection);
+        await Connection.initialize(this.config);
     }
 
     async teardown(): Promise<void> {
