@@ -1,15 +1,17 @@
 import { describe, it, before, after } from "mocha";
 import { strict as assert } from "assert";
-import Connection from "../../src/Connection/Connection";
+import DataSource from "../../src/Connection/DataSource";
 import Schema from "../../src/Schema/Schema";
 import { cleanIntegrationTables, integrationConfig } from "./helpers";
 
 let integrationReady = false;
+let dataSource: DataSource | null = null;
 
 describe("Schema migrations with real database connection", () => {
     before(async function () {
         try {
-            await Connection.initialize(integrationConfig);
+            dataSource = new DataSource(integrationConfig);
+            await dataSource.initialize();
             integrationReady = true;
             await cleanIntegrationTables();
         } catch (err) {
@@ -20,7 +22,7 @@ describe("Schema migrations with real database connection", () => {
     after(async () => {
         if (integrationReady) {
             //await cleanIntegrationTables();
-            await Connection.disconnect();
+            await dataSource?.destroy();
         }
     });
 

@@ -1,0 +1,11 @@
+const { Migration } = require("mini-orm");
+
+module.exports = class {{ class }} extends Migration {
+    async up() {
+        // Implement schema changes
+    }
+
+    async down() {
+        // Revert schema changes
+    }
+};

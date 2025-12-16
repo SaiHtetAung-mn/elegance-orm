@@ -1,19 +1,22 @@
-import Connection from "../Connection/Connection";
-import { ConnectionOptions } from "../Connection/types";
+import DataSource from "../Connection/DataSource";
+import { MigrationOptions } from "../Connection/types";
 import Command from "./Command";
-import { getConfig } from "./config";
+import { getCliConfig } from "./config";
 
 abstract class DatabaseCommand extends Command {
-    protected config!: ConnectionOptions;
+    protected dataSource!: DataSource;
+    protected migrationsConfig?: MigrationOptions;
 
     async initialize(): Promise<void> {
-        this.config = getConfig();
-        await Connection.initialize(this.config);
+        const cliConfig = getCliConfig();
+        this.dataSource = cliConfig.dataSource;
+        this.migrationsConfig = cliConfig.migrations;
+        await this.dataSource.initialize();
     }
 
     async teardown(): Promise<void> {
-        if (Connection.isInitialized()) {
-            await Connection.disconnect();
+        if (this.dataSource) {
+            await this.dataSource.destroy();
         }
     }
 }

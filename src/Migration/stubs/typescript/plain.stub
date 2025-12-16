@@ -1,11 +1,11 @@
-import Migration from "../../src/Schema/Migration";
+import { Migration } from "mini-orm";
 
 export default class {{ class }} extends Migration {
     async up(): Promise<void> {
-        // Define schema changes here
+        // Implement schema changes
     }
 
     async down(): Promise<void> {
-        // Revert schema changes here
+        // Revert schema changes
     }
 }
