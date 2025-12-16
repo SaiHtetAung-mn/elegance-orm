@@ -12,7 +12,7 @@ class MySqlConnection extends DbConnection {
 
     private createConnectionPool(): void {
         this.pool = mysql.createPool({
-            connectionLimit: 10,
+            connectionLimit: this.config.maxPoolSize ?? 10,
             host: this.config.host,
             port: this.config.port,
             user: this.config.user,

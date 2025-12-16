@@ -11,7 +11,12 @@ class MakeMigrationCommand extends Command {
 
     constructor() {
         super();
-        this.directory = getConfig().migrations.directory;
+        const migrationsConfig = getConfig().migrations;
+        if (!migrationsConfig) {
+            throw new Error("Migrations configuration is missing from the connection options.");
+        }
+
+        this.directory = migrationsConfig.directory;
     }
 
     async handle(args: string[]): Promise<void> {
