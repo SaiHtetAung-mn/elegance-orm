@@ -24,7 +24,6 @@ class MigrationFileManager {
 
     async instantiate(filePath: string): Promise<Migration> {
         const absolutePath = path.resolve(filePath);
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const imported = require(absolutePath);
         const MigrationClass = imported.default ?? Object.values(imported)[0];
 
