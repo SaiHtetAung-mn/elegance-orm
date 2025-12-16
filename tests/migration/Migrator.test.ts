@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from "mocha";
 import { strict as assert } from "assert";
 import fs from "fs/promises";
 import path from "path";
-import Connection from "../../src/Connection/Connection";
+import DataSource from "../../src/Connection/DataSource";
 import { ConnectionOptions } from "../../src/Connection/types";
 import Migrator from "../../src/Migration/Migrator";
 import MigrationRepository from "../../src/Migration/MigrationRepository";
@@ -20,6 +20,7 @@ const sqliteConfig: ConnectionOptions = {
 
 describe("Migrator", () => {
     let migrationsDir: string;
+    let dataSource: DataSource;
 
     beforeEach(async () => {
         const baseTmp = path.join(process.cwd(), "tmp");
@@ -43,11 +44,12 @@ describe("Migrator", () => {
             }
         `;
         await fs.writeFile(path.join(migrationsDir, "20240101000000_create_sqlite_users.ts"), content);
-        await Connection.initialize(sqliteConfig);
+        dataSource = new DataSource(sqliteConfig);
+        await dataSource.initialize();
     });
 
     afterEach(async () => {
-        await Connection.disconnect();
+        await dataSource?.destroy();
         await fs.rm(migrationsDir, { recursive: true, force: true });
     });
 

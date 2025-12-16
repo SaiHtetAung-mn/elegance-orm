@@ -2,18 +2,24 @@ import fs from "fs/promises";
 import path from "path";
 import { snakeCase, studlyCase } from "../utils/helpers";
 
+export type MigrationLanguage = "typescript" | "javascript";
+
 type MigrationCreatorOptions = {
     table?: string;
     create?: string | boolean;
 };
 
 class MigrationCreator {
-    constructor(private directory: string) { }
+    constructor(
+        private directory: string,
+        private language: MigrationLanguage = "typescript"
+    ) { }
 
     async create(name: string, options: MigrationCreatorOptions = {}): Promise<string> {
         await fs.mkdir(this.directory, { recursive: true });
 
-        const fileName = `${this.timestamp()}_${snakeCase(name)}.ts`;
+        const extension = this.language === "typescript" ? "ts" : "js";
+        const fileName = `${this.timestamp()}_${snakeCase(name)}.${extension}`;
         const filePath = path.join(this.directory, fileName);
         const stub = await this.getStub(options);
 
@@ -33,7 +39,8 @@ class MigrationCreator {
 
     private async getStub(options: MigrationCreatorOptions): Promise<string> {
         const stubName = options.create ? "create.stub" : "plain.stub";
-        const stubPath = path.resolve(__dirname, "stubs", stubName);
+        const stubDirectory = path.resolve(__dirname, "stubs", this.language);
+        const stubPath = path.join(stubDirectory, `${stubName}.stub`);
         return await fs.readFile(stubPath, "utf8");
     }
 

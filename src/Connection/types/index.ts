@@ -10,6 +10,5 @@ export type ConnectionOptions = {
     user: string,
     password: string,
     database: string,
-    maxPoolSize?: number,
-    migrations?: MigrationOptions
+    maxPoolSize?: number
 }

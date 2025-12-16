@@ -8,7 +8,7 @@ abstract class MigrationCommand extends DatabaseCommand {
 
     async initialize(): Promise<void> {
         await super.initialize();
-        const migrationsConfig = this.config.migrations;
+        const migrationsConfig = this.migrationsConfig;
         if (!migrationsConfig) {
             throw new Error("Migrations configuration is missing from the connection options.");
         }

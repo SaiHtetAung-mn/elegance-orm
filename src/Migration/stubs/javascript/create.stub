@@ -1,0 +1,14 @@
+const { Migration } = require("mini-orm");
+
+module.exports = class {{ class }} extends Migration {
+    async up() {
+        await this.schema.create("{{ table }}", table => {
+            table.id();
+            table.timestamps();
+        });
+    }
+
+    async down() {
+        await this.schema.dropIfExists("{{ table }}");
+    }
+};

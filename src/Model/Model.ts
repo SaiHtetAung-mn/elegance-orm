@@ -10,7 +10,7 @@ class Model {
 
     protected _dirty: Record<string, any> = {};
 
-    protected table: string = "";
+    protected table: string = ""
 
     protected primaryKey: string = "id";
     

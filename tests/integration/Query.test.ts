@@ -1,9 +1,9 @@
 import { describe, it, before, after, beforeEach } from "mocha";
 import { strict as assert } from "assert";
-import Connection from "../../src/Connection/Connection";
+import DataSource from "../../src/Connection/DataSource";
 import Model from "../../src/Model/Model";
 import operatorEnum from "../../src/Query/enums/operator";
-import { cleanIntegrationTables, integrationConfig, migrateIntegrationSchema } from "./helpers";
+import { integrationConfig, migrateIntegrationSchema } from "./helpers";
 
 class IntegrationUser extends Model {
     public id!: number;
@@ -19,10 +19,12 @@ class IntegrationUser extends Model {
 
 describe("Query builder integration on migrated schema", () => {
     let integrationReady = false;
+    let dataSource: DataSource | null = null;
 
     before(async function () {
         try {
-            await Connection.initialize(integrationConfig);
+            dataSource = new DataSource(integrationConfig);
+            await dataSource.initialize();
             integrationReady = true;
         } catch {
             this.skip();
@@ -39,8 +41,7 @@ describe("Query builder integration on migrated schema", () => {
 
     after(async () => {
         if (integrationReady) {
-            //await cleanIntegrationTables();
-            await Connection.disconnect();
+            await dataSource?.destroy();
         }
     });
 
