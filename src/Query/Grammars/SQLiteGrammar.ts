@@ -11,6 +11,7 @@ class SQLiteGrammar extends Grammar {
             this.compileColumns(builder),
             this.compileAggregate(builder),
             this.compileFrom(builder),
+            this.compileJoins(builder),
             this.compileWhere(builder),
             this.compileGroupBy(builder),
             this.compileHaving(builder),
@@ -169,7 +170,20 @@ class SQLiteGrammar extends Grammar {
     }
 
     wrap(val: string): string {
-        return `"${val.replace(/"/g, '""')}"`;
+        if (val === "*") {
+            return val;
+        }
+
+        const lower = val.toLowerCase();
+        if (lower.includes(" as ")) {
+            const [before, after] = val.split(/\s+as\s+/i);
+            return `${this.wrap(before)} as ${this.wrap(after)}`;
+        }
+
+        return val
+            .split(".")
+            .map(segment => segment === "*" ? segment : `"${segment.replace(/"/g, '""')}"`)
+            .join(".");
     }
 
     wrapTable(val: string): string {

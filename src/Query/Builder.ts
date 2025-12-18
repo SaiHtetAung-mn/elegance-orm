@@ -12,6 +12,7 @@ class Builder<T extends Model> {
         selects: [],
         distinct: false,
         from: "",
+        joins: [],
         wheres: [],
         groups: [],
         havings: [],
@@ -388,6 +389,42 @@ class Builder<T extends Model> {
 
     oldest(column: string = this.queryObj.primaryKey): this {
         return this.orderBy(column, "asc");
+    }
+
+    /** Join methods */
+    join(
+        table: string,
+        first: string,
+        operator: `${operatorEnum}` | null,
+        second: string,
+        type: "inner" | "left" = "inner"
+    ): this {
+        if (!table || !first || !second) {
+            throw new Error("The 'join' method requires table and column arguments");
+        }
+
+        const resolvedOperator = (operator ?? operatorEnum.EQUAL) as operatorEnum;
+        this.queryObj.joins.push({
+            type,
+            table,
+            clauses: [{
+                first,
+                operator: resolvedOperator,
+                second,
+                boolean: "and"
+            }]
+        });
+
+        return this;
+    }
+
+    leftJoin(
+        table: string,
+        first: string,
+        operator: `${operatorEnum}` | null,
+        second: string
+    ): this {
+        return this.join(table, first, operator, second, "left");
     }
 }
 

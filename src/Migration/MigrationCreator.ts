@@ -38,7 +38,7 @@ class MigrationCreator {
     }
 
     private async getStub(options: MigrationCreatorOptions): Promise<string> {
-        const stubName = options.create ? "create.stub" : "plain.stub";
+        const stubName = options.create ? "create" : "plain";
         const stubDirectory = path.resolve(__dirname, "stubs", this.language);
         const stubPath = path.join(stubDirectory, `${stubName}.stub`);
         return await fs.readFile(stubPath, "utf8");
