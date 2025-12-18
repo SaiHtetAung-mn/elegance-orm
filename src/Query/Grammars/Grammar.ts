@@ -16,6 +16,24 @@ abstract class Grammar {
     abstract compileGroupBy(builder: Builder<any>): string;
     abstract compileHaving(builder: Builder<any>): string;
     abstract compileLimit(builder: Builder<any>): string;
+    compileJoins(builder: Builder<any>): string {
+        const joins = builder.getQueryObj().joins;
+        if (!joins || joins.length === 0)
+            return "";
+
+        const clauses = joins.map(join => {
+            const joinType = join.type === "left" ? "left" : "inner";
+            const table = this.wrapTable(join.table);
+            const onSql = join.clauses.map((clause, index) => {
+                const boolean = index === 0 ? "" : `${clause.boolean} `;
+                return `${boolean}${this.wrap(clause.first)} ${clause.operator} ${this.wrap(clause.second)}`;
+            }).join(" ");
+
+            return `${joinType} join ${table} on ${onSql}`;
+        });
+
+        return clauses.join(" ");
+    }
 
     abstract wrap(val: string): string;
     abstract wrapTable(val: string): string;

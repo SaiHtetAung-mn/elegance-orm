@@ -11,15 +11,16 @@
   "name": "elegance-orm",
   "description": "A minimalist Object Relational Mapping library for NodeJs",
   "version": "0.0.1",
-  "main": "index.js",
+  "main": "src/index.ts",
   "dependencies": {
     "mysql2": "^3.10.2",
     "pg": "^8.11.5",
     "sqlite3": "^5.1.7"
   },
   "scripts": {
-    "test": "mocha -r ts-node/register tests/**/*.test.ts",
-    "elegance": "ts-node src/Console/cli.ts"
+    "test": "mocha -r ts-node/register \"tests/**/*.test.ts\"",
+    "elegance": "ts-node src/Console/cli.ts",
+    "build": "tsc"
   },
   "author": "Sai Htet Aung",
   "license": "ISC"

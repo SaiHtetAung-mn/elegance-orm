@@ -13,12 +13,24 @@ export type OrderObjType = {
     direction: "asc"|"desc"
 }
 
+export type JoinClause = {
+    type: "inner" | "left",
+    table: string,
+    clauses: Array<{
+        first: string,
+        operator: operatorEnum,
+        second: string,
+        boolean: "and" | "or"
+    }>
+}
+
 export type QueryObjType = {
     primaryKey: string,
     aggregate: { "function": "count"|"sum"|"avg"|"min"|"max", column: string }|null,
     selects: string[],
     distinct: boolean,
     from: string,
+    joins: JoinClause[],
     wheres: WhereObjType[],
     groups: string[],
     havings: WhereObjType[],

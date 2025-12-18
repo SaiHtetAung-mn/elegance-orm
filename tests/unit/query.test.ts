@@ -149,4 +149,16 @@ describe("Unit - Query Builder", () => {
         assert.equal(created.id, 42);
         assert.equal(created.name, "Newbie");
     });
+
+    it("builds inner and left joins", () => {
+        const builder = QueryTestModel.query()
+            .select("users.name")
+            .join("profiles", "users.id", "=", "profiles.user_id")
+            .leftJoin("roles", "users.role_id", "=", "roles.id");
+
+        assert.equal(
+            builder.toSql(),
+            'select "users"."name" from "users" inner join "profiles" on "users"."id" = "profiles"."user_id" left join "roles" on "users"."role_id" = "roles"."id"'
+        );
+    });
 });
