@@ -172,9 +172,14 @@ class Model {
         return Object.keys(this._dirty).length > 0;
     }
 
-    static query<T extends Model>(this: { new(): T }): Builder<T> {
+    static query<T extends Model>(this: { new(): T }, alias?: string): Builder<T> {
         const modelInstance = new this();
-        return modelInstance.newQuery();
+        const builder = modelInstance.newQuery();
+        if (alias) {
+            builder.as(alias);
+        }
+
+        return builder;
     }
 
     public newQuery(): Builder<this> {

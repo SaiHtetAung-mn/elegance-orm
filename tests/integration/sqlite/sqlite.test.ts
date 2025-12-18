@@ -221,7 +221,7 @@ describe("Integration - SQLite (real database)", () => {
             .join(
                 "integration_categories",
                 "integration_users.category_id",
-                operatorEnum.EQUAL,
+                "=",
                 "integration_categories.id"
             )
             .where("integration_categories.name", operatorEnum.EQUAL, "General")

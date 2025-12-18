@@ -12,6 +12,7 @@ class Builder<T extends Model> {
         selects: [],
         distinct: false,
         from: "",
+        alias: null,
         joins: [],
         wheres: [],
         groups: [],
@@ -42,6 +43,11 @@ class Builder<T extends Model> {
 
     getQueryObj(): QueryObjType {
         return this.queryObj;
+    }
+
+    as(alias: string): this {
+        this.queryObj.alias = alias;
+        return this;
     }
 
     toSql(): string {
@@ -425,6 +431,15 @@ class Builder<T extends Model> {
         second: string
     ): this {
         return this.join(table, first, operator, second, "left");
+    }
+
+    innerJoin(
+        table: string,
+        first: string,
+        operator: `${operatorEnum}` | null,
+        second: string
+    ): this {
+        return this.join(table, first, operator, second, "inner");
     }
 }
 
