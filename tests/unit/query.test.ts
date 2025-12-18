@@ -161,4 +161,15 @@ describe("Unit - Query Builder", () => {
             'select "users"."name" from "users" inner join "profiles" on "users"."id" = "profiles"."user_id" left join "roles" on "users"."role_id" = "roles"."id"'
         );
     });
+
+    it("supports table aliases when building queries", () => {
+        const builder = QueryTestModel.query("u")
+            .select("u.name")
+            .join("profiles", "u.id", "=", "profiles.user_id");
+
+        assert.equal(
+            builder.toSql(),
+            'select "u"."name" from "users" as "u" inner join "profiles" on "u"."id" = "profiles"."user_id"'
+        );
+    });
 });

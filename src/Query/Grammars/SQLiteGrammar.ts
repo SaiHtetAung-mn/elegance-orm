@@ -88,7 +88,13 @@ class SQLiteGrammar extends Grammar {
     }
 
     compileFrom(builder: Builder<any>): string {
-        return `from ${this.wrapTable(builder.getQueryObj().from)}`;
+        const { from, alias } = builder.getQueryObj();
+        const table = this.wrapTable(from);
+        if (alias && alias !== from) {
+            return `from ${table} as ${this.wrap(alias)}`;
+        }
+
+        return `from ${table}`;
     }
 
     compileWhere(builder: Builder<any>): string {

@@ -30,6 +30,7 @@ export type QueryObjType = {
     selects: string[],
     distinct: boolean,
     from: string,
+    alias: string | null,
     joins: JoinClause[],
     wheres: WhereObjType[],
     groups: string[],
