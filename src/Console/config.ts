@@ -1,7 +1,7 @@
 import path from "path";
-import DataSource from "../Connection/DataSource";
-import { MigrationOptions } from "../Connection/types";
-import type { MigrationLanguage } from "../Migration/MigrationCreator";
+import DataSource from "../connection/DataSource";
+import { MigrationOptions } from "../connection/types";
+import type { MigrationLanguage } from "../migration/MigrationCreator";
 import { ensureTypeScriptSupport } from "./utils/tsSupport";
 
 type EleganceCliConfigFile = {

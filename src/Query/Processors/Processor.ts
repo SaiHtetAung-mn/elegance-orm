@@ -1,4 +1,4 @@
-import Model from "../../Model/Model";
+import Model from "../../model/Model";
 
 interface Processor {
     processSelect<T extends Model>(query: string, bindings: any[], ModelClass: any): Promise<T[]>;

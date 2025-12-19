@@ -1,7 +1,7 @@
-import MySqlProcessor from "../../Query/Processors/MySqlProcessor";
-import PostgreSqlProcessor from "../../Query/Processors/PostgreSqlProcessor";
-import Processor from "../../Query/Processors/Processor";
-import SQLiteProcessor from "../../Query/Processors/SQLiteProcessor";
+import MySqlProcessor from "../../query/processors/MySqlProcessor";
+import PostgreSqlProcessor from "../../query/processors/PostgreSqlProcessor";
+import Processor from "../../query/processors/Processor";
+import SQLiteProcessor from "../../query/processors/SQLiteProcessor";
 import { ConnectionOptions } from "../types";
 
 class QueryProcessorFactory {

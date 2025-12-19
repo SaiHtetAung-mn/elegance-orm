@@ -1,6 +1,6 @@
-import Connection from "../../Connection/Connection";
+import Connection from "../../connection/Connection";
 import Blueprint from "../Blueprint";
-import SchemaGrammar from "../Grammars/Grammar";
+import SchemaGrammar from "../grammars/Grammar";
 
 class SchemaBuilder {
     private connection: Connection;

@@ -4,7 +4,7 @@ import Command from "../Command";
 import { getCliConfig } from "../config";
 import { parseCommandArgs } from "../utils/argParser";
 import { snakeCase, studlyCase } from "../../utils/helpers";
-import type { MigrationLanguage } from "../../Migration/MigrationCreator";
+import type { MigrationLanguage } from "../../migration/MigrationCreator";
 
 class MakeModelCommand extends Command {
     signature = "make:model";
