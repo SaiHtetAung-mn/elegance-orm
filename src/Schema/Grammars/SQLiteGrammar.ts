@@ -17,6 +17,14 @@ class SQLiteGrammar extends Grammar {
             primaryCommand.shouldBeSkipped = true;
         }
 
+        const foreignCommands = blueprint.getCommands().filter(
+            (cmd): cmd is ForeignCommand => cmd.name === "foreign"
+        );
+        foreignCommands.forEach(foreignCommand => {
+            tableStructures.push(this.inlineForeignKey(foreignCommand));
+            foreignCommand.shouldBeSkipped = true;
+        });
+
         return `create table ${this.wrapTable(blueprint.getTable())} (${tableStructures.join(", ")})`;
     }
 
@@ -29,15 +37,7 @@ class SQLiteGrammar extends Grammar {
 
     protected compileForeign(blueprint: Blueprint, command: ForeignCommand): string {
         let sql = `alter table ${this.wrapTable(blueprint.getTable())} add constraint ${this.wrapValue(command.indexName)} `;
-        sql += `foreign key (${this.columnize(command.columns)}) references ${this.wrapTable(command.referenceTable)} (${this.columnize([command.referenceColumn])})`;
-
-        if (command.onDeleteAction) {
-            sql += ` on delete ${command.onDeleteAction}`;
-        }
-
-        if (command.onUpdateAction) {
-            sql += ` on update ${command.onUpdateAction}`;
-        }
+        sql += this.foreignKeyStatement(command);
 
         return sql;
     }
@@ -83,6 +83,24 @@ class SQLiteGrammar extends Grammar {
         return columns
             .map(column => `alter table ${this.wrapTable(blueprint.getTable())} drop column ${this.wrapValue(column)}`)
             .join("; ");
+    }
+
+    private inlineForeignKey(command: ForeignCommand): string {
+        return `constraint ${this.wrapValue(command.indexName)} ${this.foreignKeyStatement(command)}`;
+    }
+
+    private foreignKeyStatement(command: ForeignCommand): string {
+        let sql = `foreign key (${this.columnize(command.columns)}) references ${this.wrapTable(command.referenceTable)} (${this.columnize([command.referenceColumn])})`;
+
+        if (command.onDeleteAction) {
+            sql += ` on delete ${command.onDeleteAction}`;
+        }
+
+        if (command.onUpdateAction) {
+            sql += ` on update ${command.onUpdateAction}`;
+        }
+
+        return sql;
     }
 
     protected compileRenameColumn(blueprint: Blueprint, command: Command): string {

@@ -1,7 +1,7 @@
 import { strict as assert } from "assert";
-import SchemaBuilder from "../../src/Schema/Builders/Builder";
+import SchemaBuilder from "../../src/schema/builder/Builder";
 import { SchemaConnectionStub } from "./helpers";
-import Connection from "../../src/Connection/Connection";
+import Connection from "../../src/connection/Connection";
 
 describe("Unit - Schema Builder", () => {
     let connection: SchemaConnectionStub;

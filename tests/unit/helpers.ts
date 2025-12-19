@@ -1,9 +1,9 @@
 import { Model } from "../../src";
-import Connection from "../../src/Connection/Connection";
-import SQLiteQueryGrammar from "../../src/Query/Grammars/SQLiteGrammar";
-import Processor from "../../src/Query/Processors/Processor";
-import SQLiteSchemaGrammar from "../../src/Schema/Grammars/SQLiteGrammar";
-import Command, { CommandArguments } from "../../src/Console/Command";
+import Connection from "../../src/connection/Connection";
+import SQLiteQueryGrammar from "../../src/query/grammars/SQLiteGrammar";
+import Processor from "../../src/query/processors/Processor";
+import SQLiteSchemaGrammar from "../../src/schema/grammars/SQLiteGrammar";
+import Command, { CommandArguments } from "../../src/console/Command";
 
 export class QueryStubProcessor implements Processor {
     records: Record<string, any>[] = [];
