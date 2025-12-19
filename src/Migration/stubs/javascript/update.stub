@@ -1,4 +1,4 @@
-const { Migration, Migration, Schema } = require("elegance-orm");
+const { Migration, Schema } = require("elegance-orm");
 
 module.exports = class {{ class }} extends Migration {
     async up() {

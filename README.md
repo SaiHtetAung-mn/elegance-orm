@@ -1,11 +1,7 @@
 # Elegance ORM
-
-Elegance ORM is a minimalist object relational mapper (ORM) for Node.js projects. In **Elegance**, each database
+Elegance ORM is a minimalist object relational mapper (ORM) for Node.js projects. The interface emphasizes fluent, chainable methods so querying, filtering, and shaping results stays conversational rather than imperative. Migrations share that same rhythm, letting you narrate table structure and constraints in plain language while Elegance handles the SQL generation behind the scenes. In **Elegance**, each database
 table is represented by a `Model` class that behaves like a plain object with dirty tracking,
-fillable/guarded protection, and timestamp helpers. The fluent query builder compiles readable chain
-calls into parameterized SQL while schema migrations let you describe tables in plain
-language and run them through a CLI that shares the same `DataSource` configuration
-as your application. Elegance currently supports:
+fillable/guarded protection, and timestamp helpers. Elegance currently supports:
 
 - PostgreSQL via [`pg`](https://www.npmjs.com/package/pg)
 - MySQL / MariaDB via [`mysql2`](https://www.npmjs.com/package/mysql2)
@@ -213,23 +209,14 @@ export default config;
 ---
 
 ## Models
-Models extend the base `Model` class and behave like plain objects with guardrails.
-
-- **Fillable** – whitelist of attributes that can be mass assigned via `Model.create` or `model.fill`.
-- **Guarded** – blacklist of attributes that cannot be mass assigned. Setting `guarded = ["*"]` locks
-  everything until explicitly fillable.
-- **MassAssignmentException** – thrown whenever guarded attributes are filled, exposing issues fast.
-- **Hidden** – attributes removed when serialized to plain json (e.g., passwords, tokens).
-- **Timestamps** – `created_at` and `updated_at` automatically managed unless `timestamps = false`.
-- **Dirty tracking** – only changed columns are sent during `save()`.
-- **Create vs Save** – `Model.create(attributes)` constructs a new instance, fills the allowed
-  attributes, inserts it into the database, and returns the hydrated model. `model.save()` persists
-  the current instance: inserts when it is new, otherwise updates only the dirty attributes.
-
-**Generate via CLI**
+In Elegance, every database table is represented by a related “Model” that handles interactions with that table. Beyond fetching data, Elegance models also let you create, modify and remove records in the table.Models extend the base `Model` class and behave like plain objects with strong guardrails so reads and writes stay predictable.
+### Scaffolding & examples
+**You can generate Model via cli**
 ```bash
-npx elegance make:model User
+npx elegance make:model Article
 ```
+
+The following snippets show what a minimal `Article` model looks like in both TypeScript and JavaScript after running the generator, plus how you might create and update records using that scaffold.
 
 <details>
 <summary>TypeScript</summary>
@@ -270,28 +257,51 @@ await article.save();
 ```
 
 </details>
-<br/>
 
-### Creating & updating records
-- `Model.create(attributes)` – fills the model (respecting `fillable`) and persists immediately.
-- `model.save()` – inserts a new row or updates only the dirty columns when the instance already exists.
+### Core guardrails
+- **Fillable** – whitelist of attributes that can be mass assigned via `Model.create`.
+- **Guarded** – blacklist of attributes that cannot be mass assigned. Setting `guarded = ["*"]` locks
+  everything until explicitly fillable.
+- **MassAssignmentException** – thrown whenever guarded attributes are filled, exposing issues fast.
+- **Hidden** – attributes removed when serialized to plain json (e.g., passwords, tokens).
+- **Dirty tracking** – only changed columns are sent during `save()`.
+- **Create vs Save** – `Model.create(attributes)` builds + inserts immediately, while `model.save()` handles either inserting a new row or updating only dirty fields on existing rows.
+
+### Identity & timestamps
+- `table` – the physical table name backing the model. Defaults to an empty string, so set it explicitly (for example, `"users"`).
+- `primaryKey` – column used for lookups and updates. Defaults to `"id"` but can match UUIDs or other identifiers.
+- `timestamps` – boolean flag that tells Elegance to manage timestamp columns automatically (default `true`).
+- `CREATED_AT` / `UPDATED_AT` – column names touched when `timestamps = true`. Override these readonly properties if your schema uses different names or disable timestamping altogether with `timestamps = false`.
+
+### Mass assignment
+Mass assignment means passing a whole object of attributes into `Model.create`. It cuts boilerplate but can be dangerous when payloads come straight from request bodies. Elegance protects you by letting each model declare `fillable` (allowed) or `guarded`
+(blocked) attributes. Anything outside of `fillable` causes a `MassAssignmentException`, so sensitive flags (admin booleans,
+role ids, ownership columns) can’t be overwritten accidentally.
 
 ```ts
-const post = await Article.create({ title: "Draft", status: "draft" });
-post.status = "published";
-await post.save(); // updates only status
+class User extends Model {
+  protected table = "users";
+  protected fillable = ["name", "email", "status"];
+  protected guarded = ["is_admin"]; // or guarded = ["*"] to require explicit fillable
+}
+
+const payload = { name: "Rai", email: "rai@example.com", status: "active", is_admin: true };
+const user = await User.create(payload); // throws because "is_admin" is not fillable
+
+user.status = "disabled"; // respects fillable before calling save()
+await user.save();
 ```
+
+You can set `guarded = ["*"]` and explicitly list safe columns to make
+the default stance "deny everything". This pattern keeps the model self-documenting and prevents hidden privilege escalations.
 
 ---
 
 ## Query Builder
 The builder provides a fluent interface for composing SQL while retaining parameter binding safety.
 Inspect the generated SQL via `toSql()` to see the final statement and placeholders.
-
-**Common entry point**
-```ts
-const users = await User.query().select("*").get();
-```
+<br/><br/>
+Let's see how raw sql is generated by below code:
 
 <details>
 <summary>TypeScript</summary>
@@ -330,6 +340,7 @@ const results = await builder.get();
 ```
 
 </details>
+<br/>
 
 **Sample SQL output**
 ```sql
@@ -343,6 +354,7 @@ limit 5 offset 0
 ```
 
 ### Selecting columns
+Pick exactly the columns you actually care about so responses stay lean and focused on your feature.
 - `select(...columns)` / `addSelect(...columns)` – project explicit columns.
 - `distinct()` – deduplicate rows.
 - `toSql()` – inspect the compiled SQL for debugging.
@@ -356,6 +368,7 @@ console.log(baseQuery.toSql());
 ```
 
 ### Filtering rows
+Layer whatever filters you need—equals, ranges, null checks—until the dataset matches the story you’re telling.
 - `where(column, operator, value, boolean = "and")`
 - `orWhere(column, operator, value)` / `andWhere(column, operator, value)`
 - `whereIn(column, values)` / `whereNotIn(column, values)`
@@ -371,6 +384,7 @@ const active = await User.query()
 ```
 
 ### Joining tables
+Combine related tables in one pass so you can hydrate richer views without dropping to raw SQL.
 - `join(table, first, operator, second, type = "inner")`
 - `leftJoin(table, first, operator, second)`
 - `innerJoin(table, first, operator, second)`
@@ -383,6 +397,7 @@ const posts = await Post.query("p")
 ```
 
 ### Grouping & aggregates
+Roll rows up into grouped summaries, then run counts, sums, or averages to answer reporting questions fast.
 - `groupBy(...columns)`
 - `having(column, operator, value, boolean = "and")`
 - `count(column = "*")`
@@ -401,6 +416,7 @@ const revenue = await Order.query()
 ```
 
 ### Ordering & pagination
+Keep long lists predictable and easy to page through by pairing ordering helpers with `offset`/`limit`.
 - `orderBy(column, direction = "asc")`
 - `orderByDesc(column)`
 - `latest(column = primaryKey)` / `oldest(column = primaryKey)`
@@ -415,9 +431,28 @@ const feed = await Article.query()
 ```
 
 ### Fetching helpers
-- `get()` – return all rows for the current builder.
-- `first()` – return the first row or null.
-- `find(id)` – shorthand for primary-key lookup.
+**`get()` – collection results**  
+Executes the current builder and returns every matching row. Use when you expect multiple records.
+```ts
+const activeUsers = await User.query()
+  .where("status", "active")
+  .orderBy("created_at", "desc")
+  .get();
+```
+
+**`first()` – single row snapshot**  
+Adds `limit 1` behind the scenes and resolves with the first row or `null` if nothing matches.
+```ts
+const admin = await User.query()
+  .where("email", "=", "admin@example.com")
+  .first();
+```
+
+**`find(id)` – primary key shortcut**  
+Shorthand for `where(primaryKey, "=", id).first()`. Pass the identifier and receive the matching model (or `null`) without manually building the constraint.
+```ts
+const order = await Order.find(42);
+```
 
 ### Mutations
 - `create(attributes)` – instantiate a model and persist via the builder.
@@ -428,8 +463,8 @@ const feed = await Article.query()
 ---
 
 ## Schema & Migrations
-Migrations extend the `Migration` base class to describe tables in plain
-language, which Elegance compiles to driver-specific SQL.
+Migrations act like a shared change log for your database, helping teams track, apply, and synchronize schema changes over time. Migrations extend the `Migration` base class to describe tables in plain
+language which Elegance compiles to driver-specific SQL.
 
 **Generate via CLI**
 ```bash
@@ -439,6 +474,61 @@ npx elegance make:migration update_users_table --table=users --update
 
 Use `--create` to scaffold a `Schema.create` migration for a new table, and `--update` to scaffold a `Schema.table` migration when you only need to modify an existing table. Pair either flag with `--table=<name>` or follow the `create_users_table` naming convention so the table can be inferred automatically.
 
+#### Migration Structure
+A migration class contains two methods: up and down. The up method is used to add new tables, columns, or indexes to your database, while the down method should reverse the operations performed by the up method.
+
+
+
+<details>
+<summary>TypeScript</summary>
+
+```ts
+import { Migration, Schema } from "elegance-orm";
+
+export default class CreateUsersTable extends Migration {
+  async up(): Promise<void> {
+    await Schema.create("users", table => {
+      table.id();
+      table.string("name");
+      table.string("email").unique(["email"]);
+      table.string("status").default("pending");
+      table.timestamps();
+    });
+  }
+
+  async down(): Promise<void> {
+    await Schema.dropIfExists("users");
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>JavaScript</summary>
+
+```js
+const { Migration, Schema } = require("elegance-orm");
+
+module.exports = class CreateUsersTable extends Migration {
+  async up() {
+    await Schema.create("users", table => {
+      table.id();
+      table.string("name");
+      table.string("email").unique(["email"]);
+      table.string("status").default("pending");
+      table.timestamps();
+    });
+  }
+
+  async down() {
+    await Schema.dropIfExists("users");
+  }
+};
+```
+
+</details>
+
 ### Schema entry points
 - `Schema.create(table, callback)` – define a brand new table.
 - `Schema.table(table, callback)` – modify an existing table.
@@ -446,6 +536,9 @@ Use `--create` to scaffold a `Schema.create` migration for a new table, and `--u
 - `Schema.hasTable(table)` / `Schema.hasColumn(table, column)` – introspection helpers for conditional migrations.
 - `Schema.renameColumn(table, from, to)` / `Schema.dropColumns(table, columns)` – column maintenance.
 
+<br/>
+
+Example
 ```ts
 // Create a new table
 await Schema.create("users", table => {
@@ -460,61 +553,6 @@ await Schema.table("users", table => {
   table.dropColumns(["legacy_username"]);
 });
 ```
-
-#### Migration Structure
-A migration class contains two methods: up and down. The up method is used to add new tables, columns, or indexes to your database, while the down method should reverse the operations performed by the up method.
-
-
-
-<details>
-<summary>TypeScript</summary>
-
-```ts
-import { Migration } from "elegance-orm";
-
-export default class CreateUsersTable extends Migration {
-  async up(): Promise<void> {
-    await this.schema.create("users", table => {
-      table.id();
-      table.string("name");
-      table.string("email").unique(["email"]);
-      table.string("status").default("pending");
-      table.timestamps();
-    });
-  }
-
-  async down(): Promise<void> {
-    await this.schema.dropIfExists("users");
-  }
-}
-```
-
-</details>
-
-<details>
-<summary>JavaScript</summary>
-
-```js
-const { Migration } = require("elegance-orm");
-
-module.exports = class CreateUsersTable extends Migration {
-  async up() {
-    await this.schema.create("users", table => {
-      table.id();
-      table.string("name");
-      table.string("email").unique(["email"]);
-      table.string("status").default("pending");
-      table.timestamps();
-    });
-  }
-
-  async down() {
-    await this.schema.dropIfExists("users");
-  }
-};
-```
-
-</details>
 
 ### Available methods
 **Identifiers & numeric helpers**
@@ -543,6 +581,9 @@ module.exports = class CreateUsersTable extends Migration {
 - `dropColumns(columns)`
 - `renameColumn(from, to)`
 
+<br/>
+
+Example
 ```ts
 await Schema.table("posts", table => {
   table.string("summary", 500).nullable();
@@ -576,7 +617,7 @@ npx elegance migrate:refresh
 ---
 
 ## Raw SQL & DataSource helpers
-Everything in Elegance sits atop the shared `DataSource`. You can always execute raw statements or
+Everything in Elegance sits on the shared `DataSource`. You can always execute raw statements or
 use the lower-level helpers when needed.
 
 **Reuse the same DataSource used in `elegance.config.ts`**
