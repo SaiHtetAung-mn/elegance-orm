@@ -2,12 +2,11 @@ import { strict as assert } from "assert";
 import fs from "fs/promises";
 import path from "path";
 import { after, before, describe, it } from "mocha";
-import Connection from "../../../src/Connection/Connection";
-import { ConnectionOptions } from "../../../src/Connection/types";
-import MassAssignmentException from "../../../src/Exception/MassAssignmentException";
-import Model from "../../../src/Model/Model";
-import operatorEnum from "../../../src/Query/enums/operator";
-import Schema from "../../../src/Schema/Schema";
+import Connection from "../../../src/connection/Connection";
+import { DataSourceOptions } from "../../../src";
+import Model from "../../../src/model/Model";
+import operatorEnum from "../../../src/query/enums/operator";
+import Schema from "../../../src/schema/Schema";
 
 class SqliteUser extends Model {
     protected table = "integration_users";
@@ -16,6 +15,8 @@ class SqliteUser extends Model {
 
 class GuardedSqliteUser extends Model {
     protected table = "integration_users";
+    protected fillable: string[] = [];
+    protected guarded: string[] = ["*"];
 }
 
 class SqliteCategory extends Model {
@@ -23,8 +24,18 @@ class SqliteCategory extends Model {
     protected fillable = ["name"];
 }
 
+class SqliteAuthor extends Model {
+    protected table = "integration_fk_authors";
+    protected fillable = ["name"];
+}
+
+class SqlitePost extends Model {
+    protected table = "integration_fk_posts";
+    protected fillable = ["title", "author_id"];
+}
+
 const dbPath = path.join(process.cwd(), "tmp", "sqlite", "integration.sqlite3");
-const sqliteConfig: ConnectionOptions = {
+const sqliteConfig: DataSourceOptions = {
     driver: "sqlite",
     host: "",
     port: 0,
@@ -35,6 +46,7 @@ const sqliteConfig: ConnectionOptions = {
 
 async function ensureConnection(): Promise<void> {
     await Connection.initialize(sqliteConfig);
+    await Connection.getInstance().rawQuery("pragma foreign_keys = on");
 }
 
 describe("Integration - SQLite (real database)", () => {
@@ -255,6 +267,55 @@ describe("Integration - SQLite (real database)", () => {
         assert.equal(avg, 7.5);
         assert.equal(min, 7);
         assert.equal(max, 8);
+    });
+
+    it("enforces inline foreign key constraints with cascading deletes", async () => {
+        await ensureConnection();
+
+        await Schema.dropIfExists("integration_fk_posts");
+        await Schema.dropIfExists("integration_fk_authors");
+
+        await Schema.create("integration_fk_authors", table => {
+            table.id();
+            table.string("name");
+            table.timestamps();
+        });
+
+        await Schema.create("integration_fk_posts", table => {
+            table.id();
+            table.integer("author_id");
+            table.string("title");
+            table.timestamps();
+            table.foreign("author_id")
+                .references("id")
+                .on("integration_fk_authors")
+                .onDelete("cascade")
+                .onUpdate("cascade");
+        });
+
+        const foreignKeys = await Connection
+            .getInstance()
+            .select("pragma foreign_key_list('integration_fk_posts')", []);
+
+        assert.equal(foreignKeys.length, 1);
+        assert.equal(foreignKeys[0].table, "integration_fk_authors");
+
+        const author = await SqliteAuthor.create({ name: "Cascade Target" });
+        await SqlitePost.create({ title: "Post One", author_id: author.id });
+        await SqlitePost.create({ title: "Post Two", author_id: author.id });
+
+        const postCountBeforeDelete = await SqlitePost.query().count();
+        assert.equal(postCountBeforeDelete, 2);
+
+        await SqliteAuthor.query()
+            .where("id", operatorEnum.EQUAL, author.id)
+            .delete();
+
+        const postCountAfterDelete = await SqlitePost.query().count();
+        assert.equal(postCountAfterDelete, 0, "Cascade delete should remove dependent rows");
+
+        await Schema.drop("integration_fk_posts");
+        await Schema.drop("integration_fk_authors");
     });
 
     it("retains data between different tests without teardown", async () => {

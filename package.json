@@ -8,7 +8,7 @@
   },
   "name": "elegance-orm",
   "description": "A minimalist Object Relational Mapping library for NodeJs",
-  "version": "0.1.0-beta.0.2",
+  "version": "0.1.0-beta.0.3",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -24,8 +24,8 @@
   "scripts": {
     "prepublishOnly": "npm run build",
     "test": "mocha -r ts-node/register \"tests/**/*.test.ts\"",
-    "elegance": "ts-node src/Console/cli.ts",
-    "build": "tsc && cp -R src/Migration/stubs dist/Migration/"
+    "elegance": "ts-node src/console/cli.ts",
+    "build": "tsc && cp -R src/migration/stubs dist/Migration/"
   },
   "author": "Sai Htet Aung",
   "license": "ISC"
