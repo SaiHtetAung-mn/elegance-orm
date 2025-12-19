@@ -42,7 +42,7 @@ class MakeModelCommand extends Command {
 
         const extension = this.language === "typescript" ? ".ts" : ".js";
         const directory = path.resolve(this.modelsDirectory, parsedPath.dir);
-        const fileBase = snakeCase(parsedPath.name) || parsedPath.name.toLowerCase() || className;
+        const fileBase = parsedPath.name.length > 0 ? parsedPath.name : className;
         const fileName = `${fileBase}${extension}`;
         const destination = path.join(directory, fileName);
 

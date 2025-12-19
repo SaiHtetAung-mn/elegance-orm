@@ -14,9 +14,9 @@ class Model {
 
     protected primaryKey: string = "id";
     
-    protected fillable: string[] = [];
+    protected fillable: string[] = ["*"];
     
-    protected guarded: string[] = ["*"];
+    protected guarded: string[] = [];
     
     protected hidden: string[] = [];
     

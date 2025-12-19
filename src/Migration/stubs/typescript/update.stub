@@ -1,4 +1,4 @@
-import { Migration, Migration, Schema } from "elegance-orm";
+import { Migration, Schema } from "elegance-orm";
 
 export default class {{ class }} extends Migration {
     async up(): Promise<void> {
