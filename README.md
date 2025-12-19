@@ -15,7 +15,7 @@ as your application. Elegance currently supports:
 
 ## Installation
 ```bash
-npm install elegance-orm
+npm install elegance-orm@beta
 ```
 
 Elegance targets Node.js 18+ and already depends on the official drivers listed above.
