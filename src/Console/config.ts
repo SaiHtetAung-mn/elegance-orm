@@ -2,6 +2,7 @@ import path from "path";
 import DataSource from "../Connection/DataSource";
 import { MigrationOptions } from "../Connection/types";
 import type { MigrationLanguage } from "../Migration/MigrationCreator";
+import { ensureTypeScriptSupport } from "./utils/tsSupport";
 
 type EleganceCliConfigFile = {
     dataSource: string;
@@ -45,6 +46,9 @@ export function getCliConfig(): LoadedCliConfig {
 
     const configPath = resolveConfigPath();
     const configDir = path.dirname(configPath);
+    if (isTypeScriptFile(configPath)) {
+        ensureTypeScriptSupport();
+    }
     const fileConfig = loadCliConfig(configPath);
     const dataSource = loadDataSourceInstance(fileConfig.dataSource, configDir);
     const migrations = fileConfig.migrations
@@ -54,6 +58,9 @@ export function getCliConfig(): LoadedCliConfig {
         ? resolveModelsConfig(fileConfig.models, configDir)
         : undefined;
     const language = resolveLanguage(fileConfig.language);
+    if (language === "typescript") {
+        ensureTypeScriptSupport();
+    }
 
     cachedConfig = { dataSource, migrations, models, language };
     return cachedConfig;
@@ -195,4 +202,9 @@ function isDataSource(value: unknown): value is DataSource {
     return typeof candidate.initialize === "function"
         && typeof candidate.destroy === "function"
         && typeof candidate.getConfig === "function";
+}
+
+function isTypeScriptFile(target: string): boolean {
+    const ext = path.extname(target).toLowerCase();
+    return ext === ".ts" || ext === ".tsx";
 }
