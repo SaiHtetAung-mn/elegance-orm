@@ -2,12 +2,14 @@ const { Migration, MigrationInterface, Schema } = require("elegance-orm");
 
 module.exports = class {{ class }} implements MigrationInterface {
     async up() {
-        await Schema.create("{{ table }}", table => {
+        await Schema.table("{{ table }}", table => {
             
         });
     }
 
     async down() {
-        await Schema.dropIfExists("{{ table }}");
+        await Schema.table("{{ table }}", table => {
+            
+        });
     }
 };

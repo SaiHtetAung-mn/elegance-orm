@@ -7,6 +7,7 @@ export type MigrationLanguage = "typescript" | "javascript";
 type MigrationCreatorOptions = {
     table?: string;
     create?: string | boolean;
+    update?: boolean;
 };
 
 class MigrationCreator {
@@ -23,7 +24,7 @@ class MigrationCreator {
         const filePath = path.join(this.directory, fileName);
         const stub = await this.getStub(options);
 
-        const tableName = this.getTableName(options);
+        const tableName = this.getTableName(name, options);
         const replacements: Record<string, string> = {
             "{{ class }}": studlyCase(name),
             "{{ table }}": tableName ?? "table_name"
@@ -38,7 +39,7 @@ class MigrationCreator {
     }
 
     private async getStub(options: MigrationCreatorOptions): Promise<string> {
-        const stubName = options.create ? "create" : "plain";
+        const stubName = options.create ? "create" : options.update ? "update" : "plain";
         const stubDirectory = path.resolve(__dirname, "stubs", this.language);
         const stubPath = path.join(stubDirectory, `${stubName}.stub`);
         return await fs.readFile(stubPath, "utf8");
@@ -49,16 +50,35 @@ class MigrationCreator {
         return now.toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
     }
 
-    private getTableName(options: MigrationCreatorOptions): string | null {
+    private getTableName(name: string, options: MigrationCreatorOptions): string | null {
         if (typeof options.create === "string" && options.create.length > 0) {
             return options.create;
         }
 
-        if (options.create === true && options.table) {
+        if (options.table) {
             return options.table;
         }
 
-        return options.table ?? null;
+        if (options.create === true) {
+            return this.inferTableFromMigrationName(name, ["create"]);
+        }
+
+        if (options.update) {
+            return this.inferTableFromMigrationName(name, ["update", "alter"]);
+        }
+
+        return null;
+    }
+
+    private inferTableFromMigrationName(name: string, prefixes: string[]): string | null {
+        const snakeName = snakeCase(name);
+        for (const prefix of prefixes) {
+            const match = snakeName.match(new RegExp(`${prefix}_(.+)_table`));
+            if (match) {
+                return match[1];
+            }
+        }
+        return null;
     }
 }
 

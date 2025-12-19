@@ -4,7 +4,7 @@ import MassAssignmentException from "../Exception/MassAssignmentException";
 class Model {
     [x: string]: any;
 
-    protected _attributes: Record<string, any> = {};
+    private _attributes: Record<string, any> = {};
 
     protected _original: Record<string, any> = {};
 

@@ -30,11 +30,20 @@ class MakeMigrationCommand extends Command {
         }
 
         const table = typeof options.table === "string" ? options.table : undefined;
-        const createOption = options.create ?? false;
+        const createOption = typeof options.create === "string"
+            ? options.create
+            : options.create === true;
+        const updateOption = options.update === true;
+
+        if (createOption && updateOption) {
+            throw new Error("The --create and --update flags cannot be used together.");
+        }
+
         const creator = new MigrationCreator(this.directory, this.language);
         const filePath = await creator.create(name, {
             table,
-            create: createOption
+            create: createOption,
+            update: updateOption
         });
 
         await fs.chmod(filePath, 0o644);

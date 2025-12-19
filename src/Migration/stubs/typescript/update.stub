@@ -2,10 +2,14 @@ import { Migration, MigrationInterface, Schema } from "elegance-orm";
 
 export default class {{ class }} extends Migration {
     async up(): Promise<void> {
-        // Implement schema changes
+        await Schema.table("{{ table }}", table => {
+            // Update schema changes
+        });
     }
 
     async down(): Promise<void> {
-        // Revert schema changes
+        await Schema.table("{{ table }}", table => {
+            // Revert schema updates
+        });
     }
 }

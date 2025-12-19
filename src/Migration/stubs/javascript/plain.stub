@@ -1,6 +1,6 @@
-const { Migration } = require("mini-orm");
+const { Migration, MigrationInterface } = require("elegance-orm");
 
-module.exports = class {{ class }} extends Migration {
+module.exports = class {{ class }} implements MigrationInterface {
     async up() {
         // Implement schema changes
     }
