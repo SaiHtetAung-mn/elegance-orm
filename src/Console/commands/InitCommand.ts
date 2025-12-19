@@ -34,6 +34,9 @@ class InitCommand extends Command {
         directory: "",
         table: "migrations"
     },
+    models: {
+        directory: ""
+    },
     language: "typescript"
 };
 

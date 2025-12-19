@@ -1,10 +1,13 @@
 const config = {
-    dataSource: "migrations",
+    dataSource: __dirname + "/migrations/data-source.ts",
     migrations: {
         directory: "migrations",
         table: "migrations"
     },
-    language: "typescript"
+    models: {
+        directory: "models"
+    },
+    language: "javascript"
 };
 
 export default config;

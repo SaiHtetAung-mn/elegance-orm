@@ -1,0 +1,6 @@
+src/
+tests/
+tmp/
+node_modules/
+
+elegance.config.ts

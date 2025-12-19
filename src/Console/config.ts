@@ -9,13 +9,21 @@ type EleganceCliConfigFile = {
         directory: string;
         table?: string;
     };
+    models?: {
+        directory: string;
+    };
     language?: string;
 };
 
 type LoadedCliConfig = {
     dataSource: DataSource;
     migrations?: MigrationOptions;
+    models?: ModelDirectoryOptions;
     language: MigrationLanguage;
+};
+
+type ModelDirectoryOptions = {
+    directory: string;
 };
 
 const CONFIG_FILENAMES = [
@@ -42,9 +50,12 @@ export function getCliConfig(): LoadedCliConfig {
     const migrations = fileConfig.migrations
         ? resolveMigrationsConfig(fileConfig.migrations, configDir)
         : undefined;
+    const models = fileConfig.models
+        ? resolveModelsConfig(fileConfig.models, configDir)
+        : undefined;
     const language = resolveLanguage(fileConfig.language);
 
-    cachedConfig = { dataSource, migrations, language };
+    cachedConfig = { dataSource, migrations, models, language };
     return cachedConfig;
 }
 
@@ -85,6 +96,21 @@ function resolveMigrationsConfig(
     };
 }
 
+function resolveModelsConfig(
+    config: NonNullable<EleganceCliConfigFile["models"]>,
+    baseDir: string
+): ModelDirectoryOptions {
+    if (typeof config.directory !== "string" || !config.directory.trim()) {
+        throw new Error("Models configuration must include a non-empty 'directory'.");
+    }
+
+    const directory = path.isAbsolute(config.directory)
+        ? config.directory
+        : path.resolve(baseDir, config.directory);
+
+    return { directory };
+}
+
 function resolveConfigPath(): string {
     const cwd = process.cwd();
     for (const filename of CONFIG_FILENAMES) {
@@ -116,10 +142,16 @@ function loadCliConfig(configPath: string): EleganceCliConfigFile {
             table: resolved.migrations.table
         }
         : undefined;
+    const models = resolved.models
+        ? {
+            directory: resolved.models.directory
+        }
+        : undefined;
 
     return {
         dataSource: resolved.dataSource,
         migrations,
+        models,
         language: resolved.language
     };
 }
