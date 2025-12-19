@@ -1,6 +1,6 @@
-const { Migration, MigrationInterface, Schema } = require("elegance-orm");
+const { Migration, Migration, Schema } = require("elegance-orm");
 
-module.exports = class {{ class }} implements MigrationInterface {
+module.exports = class {{ class }} extends Migration {
     async up() {
         await Schema.table("{{ table }}", table => {
             

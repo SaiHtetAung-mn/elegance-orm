@@ -1,4 +1,4 @@
-import Migration from "./MigrationInterface";
+import Migration from "./Migration";
 import MigrationFileManager from "./MigrationFileManager";
 import MigrationRepository from "./MigrationRepository";
 

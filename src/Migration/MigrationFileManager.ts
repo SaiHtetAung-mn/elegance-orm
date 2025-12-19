@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import Migration from "./MigrationInterface";
+import Migration from "./Migration";
 import { MigrationFileMap } from "./types";
 
 class MigrationFileManager {
