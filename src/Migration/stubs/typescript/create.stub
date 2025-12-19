@@ -1,14 +1,13 @@
-import { Migration } from "mini-orm";
+import { Migration, MigrationInterface, Schema } from "elegance-orm";
 
 export default class {{ class }} extends Migration {
     async up(): Promise<void> {
-        await this.schema.create("{{ table }}", table => {
-            table.id();
-            table.timestamps();
+        await Schema.create("{{ table }}", table => {
+            // Implement schema changes
         });
     }
 
     async down(): Promise<void> {
-        await this.schema.dropIfExists("{{ table }}");
+        await Schema.dropIfExists("{{ table }}");
     }
 }
