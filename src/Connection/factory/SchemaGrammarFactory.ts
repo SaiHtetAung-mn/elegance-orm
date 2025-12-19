@@ -1,7 +1,7 @@
-import SchemaGrammar from "../../Schema/Grammars/Grammar";
-import MySqlGrammar from "../../Schema/Grammars/MySqlGrammar";
-import PostgreSqlGrammar from "../../Schema/Grammars/PostgreSqlGrammar";
-import SQLiteGrammar from "../../Schema/Grammars/SQLiteGrammar";
+import SchemaGrammar from "../../schema/grammars/Grammar";
+import MySqlGrammar from "../../schema/grammars/MySqlGrammar";
+import PostgreSqlGrammar from "../../schema/grammars/PostgreSqlGrammar";
+import SQLiteGrammar from "../../schema/grammars/SQLiteGrammar";
 import { ConnectionOptions } from "../types";
 
 class SchemaGrammarFactory {

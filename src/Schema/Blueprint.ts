@@ -1,9 +1,9 @@
-import Connection from "../Connection/Connection";
+import Connection from "../connection/Connection";
 import ColumnDefinition from "./ColumnDefinition";
 import Command from "./Command";
 import { methodExists, firstCharUppercase } from "../utils/helpers";
 import { columnType } from "./constants/ColumnType";
-import SchemaGrammar from "./Grammars/Grammar";
+import SchemaGrammar from "./grammars/Grammar";
 import { TColumnAttribute } from "./types/TColumnAttribute";
 import { TCommandParameter } from "./types/TCommandParameter";
 import { TCommandName } from "./types/TCommandName";

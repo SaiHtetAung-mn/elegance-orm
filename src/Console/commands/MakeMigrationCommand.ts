@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import Command from "../Command";
-import MigrationCreator, { MigrationLanguage } from "../../Migration/MigrationCreator";
+import MigrationCreator, { MigrationLanguage } from "../../migration/MigrationCreator";
 import { getCliConfig } from "../config";
 import { parseCommandArgs } from "../utils/argParser";
 

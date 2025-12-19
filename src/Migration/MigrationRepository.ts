@@ -1,5 +1,5 @@
-import Connection from "../Connection/Connection";
-import Schema from "../Schema/Schema";
+import Connection from "../connection/Connection";
+import Schema from "../schema/Schema";
 
 type MigrationRecord = {
     migration: string;

@@ -1,6 +1,6 @@
-import MigrationFileManager from "../Migration/MigrationFileManager";
-import Migrator from "../Migration/Migrator";
-import MigrationRepository from "../Migration/MigrationRepository";
+import MigrationFileManager from "../migration/MigrationFileManager";
+import Migrator from "../migration/Migrator";
+import MigrationRepository from "../migration/MigrationRepository";
 import DatabaseCommand from "./DatabaseCommand";
 
 abstract class MigrationCommand extends DatabaseCommand {

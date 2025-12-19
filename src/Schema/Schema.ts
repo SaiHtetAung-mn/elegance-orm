@@ -1,5 +1,5 @@
-import Connection from "../Connection/Connection";
-import SchemaBuilder from "./Builders/Builder";
+import Connection from "../connection/Connection";
+import SchemaBuilder from "./builder/Builder";
 import Blueprint from "./Blueprint";
 
 class Schema {

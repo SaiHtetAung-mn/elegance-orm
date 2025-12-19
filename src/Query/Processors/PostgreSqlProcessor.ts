@@ -1,5 +1,5 @@
-import Connection from "../../Connection/Connection";
-import Model from "../../Model/Model";
+import Connection from "../../connection/Connection";
+import Model from "../../model/Model";
 import Processor from "./Processor";
 
 class PostgreSqlProcessor implements Processor {

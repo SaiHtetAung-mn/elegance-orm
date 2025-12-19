@@ -1,5 +1,5 @@
-import DataSource from "../Connection/DataSource";
-import { MigrationOptions } from "../Connection/types";
+import DataSource from "../connection/DataSource";
+import { MigrationOptions } from "../connection/types";
 import Command from "./Command";
 import { getCliConfig } from "./config";
 

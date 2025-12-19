@@ -1,7 +1,7 @@
-import Connection from "../Connection/Connection";
-import Model from "../Model/Model";
-import Grammar from "./Grammars/Grammar";
-import Processor from "./Processors/Processor";
+import Connection from "../connection/Connection";
+import Model from "../model/Model";
+import Grammar from "./grammars/Grammar";
+import Processor from "./processors/Processor";
 import operatorEnum from "./enums/operator";
 import { QueryObjType } from "./types";
 

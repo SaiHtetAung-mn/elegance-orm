@@ -1,5 +1,5 @@
-import Builder from "../Query/Builder";
-import MassAssignmentException from "../Exception/MassAssignmentException";
+import Builder from "../query/Builder";
+import MassAssignmentException from "../exception/MassAssignmentException";
 
 class Model {
     [x: string]: any;
