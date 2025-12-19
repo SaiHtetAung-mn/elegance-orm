@@ -66,6 +66,7 @@ describe("Unit - CLI and Commands", () => {
         assert.deepEqual(names, [
             "init",
             "make:migration",
+            "make:model",
             "migrate",
             "migrate:rollback",
             "migrate:refresh"
