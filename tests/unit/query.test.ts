@@ -150,6 +150,33 @@ describe("Unit - Query Builder", () => {
         assert.equal(created.name, "Newbie");
     });
 
+    it("performs bulk inserts without triggering mass assignment checks", async () => {
+        await QueryTestModel.query().insert([
+            { name: "Bulk One", role: "guest" },
+            { name: "Bulk Two", role: "member" }
+        ]);
+
+        assert.ok(connectionStub.lastRaw);
+        assert.equal(
+            connectionStub.lastRaw?.query,
+            'insert into "users" ("name", "role") values (?, ?), (?, ?)'
+        );
+        assert.deepEqual(
+            connectionStub.lastRaw?.bindings,
+            ["Bulk One", "guest", "Bulk Two", "member"]
+        );
+    });
+
+    it("validates column consistency during bulk insert", async () => {
+        await assert.rejects(
+            () => QueryTestModel.query().insert([
+                { name: "Mismatch", role: "guest" },
+                { name: "Missing role" }
+            ] as any),
+            /Record at position 1/
+        );
+    });
+
     it("builds inner and left joins", () => {
         const builder = QueryTestModel.query()
             .select("users.name")

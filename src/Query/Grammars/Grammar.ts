@@ -2,7 +2,7 @@ import Builder from "../Builder";
 
 abstract class Grammar {
     abstract compileSelect(builder: Builder<any>): string;
-    abstract compileInsert(builder: Builder<any>, columns: string[]): string;
+    abstract compileInsert(builder: Builder<any>, columns: string[], rowsCount?: number): string;
     abstract compileUpdate(builder: Builder<any>, columns: string[]): string;
     abstract compileDelete(builder: Builder<any>): string;
 

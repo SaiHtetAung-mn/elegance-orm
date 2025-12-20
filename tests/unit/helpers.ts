@@ -42,6 +42,7 @@ export class QueryConnectionStub {
     processor = new QueryStubProcessor();
     aggregateValue = 0;
     lastAggregate?: { query: string; bindings: any[] };
+    lastRaw?: { query: string; bindings: any[] };
 
     getQueryGrammar() {
         return this.grammar;
@@ -68,8 +69,8 @@ export class QueryConnectionStub {
         return 0;
     }
 
-    async rawQuery(): Promise<void> {
-        // noop for unit tests
+    async rawQuery(query: string, bindings: any[]): Promise<void> {
+        this.lastRaw = { query, bindings };
     }
 }
 
