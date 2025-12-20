@@ -167,6 +167,11 @@ describe("Integration - SQLite (real database)", () => {
         activeUser.category_id = generalCategory.id;
         await activeUser.save();
 
+        await SqliteUser.query().insert([
+            { name: "Bulk One", email: "bulk-one@example.com", visits: 1 },
+            { name: "Bulk Two", email: "bulk-two@example.com", visits: 4 }
+        ]);
+
         await assert.rejects(
             () => GuardedSqliteUser.create({
                 name: "Guarded",
@@ -217,7 +222,7 @@ describe("Integration - SQLite (real database)", () => {
             .whereNotBetween("visits", [50, 60])
             .whereNull("deleted_at")
             .whereNotNull("created_at")
-            .groupBy("name")
+            .groupBy("name", "email", "visits")
             .having("name", operatorEnum.NOT_EQUAL, "Nobody")
             .orderBy("name")
             .orderByDesc("visits")
@@ -226,6 +231,18 @@ describe("Integration - SQLite (real database)", () => {
             .get();
         assert.equal(complexResults.length, 1);
         assert.equal(complexResults[0].name, "Query Target");
+
+        const bulkCount = await SqliteUser.query()
+            .whereIn("email", [
+                "bulk-one@example.com",
+                "bulk-two@example.com"
+            ])
+            .count();
+        assert.equal(bulkCount, 2);
+        const latestBulkUser = await SqliteUser.query()
+            .where("email", operatorEnum.EQUAL, "bulk-two@example.com")
+            .first();
+        assert.ok(latestBulkUser);
 
         const joinedUsers = await SqliteUser.query()
             .select("integration_users.name")
@@ -250,12 +267,13 @@ describe("Integration - SQLite (real database)", () => {
         assert.equal(paged[0].id, archivedUser.id);
 
         const latest = await SqliteUser.query().latest().first();
-        assert.equal(latest?.id, archivedUser.id);
+        assert.equal(latest?.id, latestBulkUser!.id);
 
         const found = await SqliteUser.query().find(reloadedActive!.id);
         assert.equal(found?.name, "Query Target");
 
-        const aggregateBuilder = () => SqliteUser.query().where("id", operatorEnum.GREATER_THAN, 0);
+        const aggregateBuilder = () => SqliteUser.query()
+            .whereIn("email", ["active@example.com", "archived@example.com"]);
         const count = await aggregateBuilder().count();
         const sum = await aggregateBuilder().sum("visits");
         const avg = await aggregateBuilder().avg("visits");
@@ -276,13 +294,13 @@ describe("Integration - SQLite (real database)", () => {
         await Schema.dropIfExists("integration_fk_authors");
 
         await Schema.create("integration_fk_authors", table => {
-            table.id();
+            table.id().primary();
             table.string("name");
             table.timestamps();
         });
 
         await Schema.create("integration_fk_posts", table => {
-            table.id();
+            table.id().primary();
             table.integer("author_id");
             table.string("title");
             table.timestamps();

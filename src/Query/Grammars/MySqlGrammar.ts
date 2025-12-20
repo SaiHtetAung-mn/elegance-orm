@@ -22,14 +22,15 @@ class MySqlGrammar extends Grammar {
         return sql.filter(clause => Boolean(clause)).join(" ").trim();
     }
 
-    compileInsert(builder: Builder<any>, columns: string[]): string {
+    compileInsert(builder: Builder<any>, columns: string[], rowsCount: number = 1): string {
         const cols: string = columns.map(col => this.wrap(col)).join(", ");
-        const values: string = Array(columns.length).fill("?").join(", ");
+        const singleRowPlaceholders = `(${Array(columns.length).fill("?").join(", ")})`;
+        const values: string = Array(rowsCount).fill(singleRowPlaceholders).join(", ");
 
         const query: string[] = ["insert into"];
         query.push(
             this.wrapTable(builder.getQueryObj().from) + "(" + cols + ")",
-            "values(" + values + ")"
+            "values " + values
         );
 
         return query.join(" ").trim();

@@ -22,13 +22,14 @@ class SQLiteGrammar extends Grammar {
         return sql.filter(Boolean).join(" ").trim();
     }
 
-    compileInsert(builder: Builder<any>, columns: string[]): string {
+    compileInsert(builder: Builder<any>, columns: string[], rowsCount: number = 1): string {
         const cols = columns.map(col => this.wrap(col)).join(", ");
-        const values = Array(columns.length).fill("?").join(", ");
+        const singleRowPlaceholders = `(${Array(columns.length).fill("?").join(", ")})`;
+        const values = Array(rowsCount).fill(singleRowPlaceholders).join(", ");
         const query: string[] = ["insert into"];
         query.push(
             `${this.wrapTable(builder.getQueryObj().from)} (${cols})`,
-            `values (${values})`
+            `values ${values}`
         );
 
         return query.join(" ");

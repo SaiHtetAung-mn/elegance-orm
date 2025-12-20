@@ -92,6 +92,28 @@ class Builder<T extends Model> {
         return await this.processor.processInsertGetId(query, values);
     }
 
+    async insert(records: Record<string, any>[]): Promise<void> {
+        if (!Array.isArray(records) || records.length === 0) {
+            throw new Error("The 'insert' method requires at least one record.");
+        }
+
+        const columns = Object.keys(records[0] ?? {});
+        if (columns.length === 0) {
+            throw new Error("Bulk insert requires records with at least one column.");
+        }
+
+        const bindings: any[] = [];
+        records.forEach((record, index) => {
+            this.ensureConsistentColumns(columns, record, index);
+            columns.forEach(column => {
+                bindings.push(record[column]);
+            });
+        });
+
+        const query: string = this.grammar.compileInsert(this, columns, records.length);
+        await this.connection.rawQuery(query, bindings);
+    }
+
     async update(attributes: Partial<T>): Promise<number> {
         const columns: string[] = Object.keys(attributes as Record<string, any>);
         const values: any[] = columns.map(column => (attributes as Record<string, any>)[column]);
@@ -165,6 +187,19 @@ class Builder<T extends Model> {
 
     private resetBindings(): void {
         this.binding = { where: [], having: [] };
+    }
+
+    private ensureConsistentColumns(columns: string[], record: Record<string, any>, index: number): void {
+        const recordColumns = Object.keys(record);
+        if (recordColumns.length !== columns.length) {
+            throw new Error(`Record at position ${index} must define the same columns as the first record.`);
+        }
+
+        for (const column of columns) {
+            if (!(column in record)) {
+                throw new Error(`Record at position ${index} is missing the '${column}' column required for bulk insert.`);
+            }
+        }
     }
 
     private async aggregate(functionName: "count" | "max" | "min" | "avg" | "sum", column: string): Promise<number> {
