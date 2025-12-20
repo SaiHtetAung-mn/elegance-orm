@@ -1,6 +1,6 @@
-# Elegance ORM – Developer Guide
+# Elegance ORM
 
-Elegance ORM is a minimalist object relational mapper (ORM) for Node.js projects. The interface emphasizes fluent, chainable methods so querying, filtering and shaping results stays conversational rather than imperative. Migrations share that same rhythm letting you narrate table structure and constraints in plain language while Elegance handles the SQL generation behind the scenes. In Elegance, each database
+Elegance ORM is a minimalist object relational mapper (ORM) for Node.js projects. The interface emphasizes fluent, chainable methods so querying, filtering and shaping results stays conversational rather than imperative. In Elegance, each database
 table is represented by a `Model` class that behaves like a plain object with dirty tracking,
 fillable/guarded protection, and timestamp helpers. If you enjoy Laravel’s ergonomics, you’ll feel at home.
 
@@ -10,12 +10,6 @@ fillable/guarded protection, and timestamp helpers. If you enjoy Laravel’s erg
 - **Drivers:** PostgreSQL (`pg`), MySQL / MariaDB (`mysql2`), and SQLite (`sqlite3`).
 - **Language targets:** Works in both TypeScript and JavaScript projects (Node.js 18+).
 - **Design goals:** Fluent builder APIs, fillable/guarded protection, timestamp helpers, expressive schema blueprints, and zero-magic data sources.
-
-### Why Elegance?
-1. **Familiar workflow.** Models, query builders, migrations, and CLI commands mirror the Laravel workflow.
-2. **Explicit safety.** Fillable/guarded, dirty tracking, timestamps, and hidden attributes are first-class.
-3. **Driver parity.** The schema grammar, query grammar, and processors are implemented for every supported database – the same migration works everywhere.
-4. **Plain TypeScript.** No decorators or code generation. Everything is just classes and methods, making it easy to step through in a debugger.
 
 ---
 
