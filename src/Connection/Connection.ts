@@ -6,7 +6,8 @@ import ConnectionFactory from "./factory/ConnectionFactory";
 import QueryGrammarFactory from "./factory/QueryGrammarFactory";
 import QueryProcessorFactory from "./factory/QueryProcessorFactory";
 import SchemaGrammarFactory from "./factory/SchemaGrammarFactory";
-import { ConnectionOptions, TransactionCallback } from "./types";
+import TransactionContext from "./TransactionContext";
+import { ConnectionOptions, TransactionCallback, TransactionClient } from "./types";
 
 class Connection {
     private connection: DbConnection | null = null;
@@ -115,28 +116,64 @@ class Connection {
         return this.schemaGrammar;
     }
 
+    private getActiveTransactionClient(): TransactionClient | null {
+        return TransactionContext.getClient();
+    }
+
     async rawQuery<T = any>(query: string, bindings: any[] = []): Promise<T> {
+        const client = this.getActiveTransactionClient();
+        if (client) {
+            return await client.rawQuery<T>(query, bindings);
+        }
+
         return await this.requireConnection().rawQuery(query, bindings);
     }
 
     async select(query: string, bindings: any[]): Promise<any[]> {
+        const client = this.getActiveTransactionClient();
+        if (client) {
+            return await client.select(query, bindings);
+        }
+
         return await this.requireConnection().select(query, bindings);
     }
 
     async insert(query: string, bindings: any[]): Promise<any> {
+        const client = this.getActiveTransactionClient();
+        if (client) {
+            return await client.insert(query, bindings);
+        }
+
         return await this.requireConnection().insert(query, bindings);
     }
 
     async update(query: string, bindings: any[]): Promise<number> {
+        const client = this.getActiveTransactionClient();
+        if (client) {
+            return await client.update(query, bindings);
+        }
+
         return await this.requireConnection().update(query, bindings);
     }
 
     async delete(query: string, bindings: any[]): Promise<number> {
+        const client = this.getActiveTransactionClient();
+        if (client) {
+            return await client.delete(query, bindings);
+        }
+
         return await this.requireConnection().delete(query, bindings);
     }
 
     async transaction<T>(callback: TransactionCallback<T>): Promise<T> {
-        return await this.requireConnection().transaction(callback);
+        const existingClient = this.getActiveTransactionClient();
+        if (existingClient) {
+            return await callback(existingClient);
+        }
+
+        return await this.requireConnection().transaction(async trxClient => {
+            return await TransactionContext.run(trxClient, () => callback(trxClient));
+        });
     }
 }
 

@@ -338,6 +338,7 @@ Useful when syncing fixtures or importing CSV data. Because it bypasses `fillabl
 ### Raw Queries via DataSource
 ```ts
 import dataSource from "./database/dataSource";
+import User from "./app/models/User";
 
 await dataSource.initialize();
 const rows = await dataSource.rawQuery(
@@ -363,8 +364,11 @@ await dataSource.transaction(async trx => {
     "update users set last_order_total = ? where id = ?",
     [total, userId]
   );
+
+  await User.create({ name: "Tx example", email: "tx@example.com" });
 });
 ```
+Any query builder or model helpers you call inside the callback automatically share the same transaction context—no extra wiring needed.
 
 ### Conditional Migrations
 ```ts
