@@ -6,7 +6,7 @@ import ConnectionFactory from "./factory/ConnectionFactory";
 import QueryGrammarFactory from "./factory/QueryGrammarFactory";
 import QueryProcessorFactory from "./factory/QueryProcessorFactory";
 import SchemaGrammarFactory from "./factory/SchemaGrammarFactory";
-import { ConnectionOptions } from "./types";
+import { ConnectionOptions, TransactionCallback } from "./types";
 
 class Connection {
     private connection: DbConnection | null = null;
@@ -133,6 +133,10 @@ class Connection {
 
     async delete(query: string, bindings: any[]): Promise<number> {
         return await this.requireConnection().delete(query, bindings);
+    }
+
+    async transaction<T>(callback: TransactionCallback<T>): Promise<T> {
+        return await this.requireConnection().transaction(callback);
     }
 }
 

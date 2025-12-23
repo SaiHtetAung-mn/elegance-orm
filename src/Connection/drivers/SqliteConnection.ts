@@ -1,5 +1,5 @@
 import * as sqlite3 from "sqlite3";
-import { ConnectionOptions } from "../types";
+import { ConnectionOptions, TransactionCallback, TransactionClient } from "../types";
 import DbConnection from "./DbConnection";
 
 class SqliteConnection extends DbConnection {
@@ -78,6 +78,41 @@ class SqliteConnection extends DbConnection {
     async delete(query: string, bindings: any[]): Promise<number> {
         const result = await this.rawQuery<sqlite3.RunResult>(query, bindings);
         return result.changes ?? 0;
+    }
+
+    async transaction<T>(callback: TransactionCallback<T>): Promise<T> {
+        await this.rawQuery("BEGIN TRANSACTION");
+        const trxClient = this.createTransactionClient();
+
+        try {
+            const result = await callback(trxClient);
+            await this.rawQuery("COMMIT");
+            return result;
+        } catch (error) {
+            await this.rawQuery("ROLLBACK");
+            throw error;
+        }
+    }
+
+    private createTransactionClient(): TransactionClient {
+        return {
+            rawQuery: async <T>(query: string, bindings: any[] = []) => {
+                const result = await this.rawQuery<T>(query, bindings);
+                return result;
+            },
+            select: async (query: string, bindings: any[] = []) => {
+                return await this.select(query, bindings);
+            },
+            insert: async (query: string, bindings: any[] = []) => {
+                return await this.insert(query, bindings);
+            },
+            update: async (query: string, bindings: any[] = []) => {
+                return await this.update(query, bindings);
+            },
+            delete: async (query: string, bindings: any[] = []) => {
+                return await this.delete(query, bindings);
+            }
+        };
     }
 }
 
