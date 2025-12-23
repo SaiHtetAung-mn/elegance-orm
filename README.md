@@ -351,6 +351,21 @@ await dataSource.insert(
 await dataSource.destroy();
 ```
 
+### Transactions via DataSource
+```ts
+await dataSource.transaction(async trx => {
+  await trx.insert(
+    "insert into orders (user_id, total) values (?, ?)",
+    [userId, total]
+  );
+
+  await trx.update(
+    "update users set last_order_total = ? where id = ?",
+    [total, userId]
+  );
+});
+```
+
 ### Conditional Migrations
 ```ts
 if (!(await Schema.hasTable("settings"))) {
@@ -370,6 +385,7 @@ if (!(await Schema.hasTable("settings"))) {
 - `insert`
 - `update`
 - `delete`
+- `transaction`
 
 ---
 

@@ -1,6 +1,6 @@
-import { ConnectionOptions } from "../types";
+import { ConnectionOptions, TransactionCallback, TransactionClient } from "../types";
 import DbConnection from "./DbConnection";
-import mysql, { RowDataPacket, Pool, ResultSetHeader } from "mysql2/promise";
+import mysql, { RowDataPacket, Pool, PoolConnection, ResultSetHeader } from "mysql2/promise";
 
 class MySqlConnection extends DbConnection {
     private pool!: Pool;
@@ -21,15 +21,17 @@ class MySqlConnection extends DbConnection {
         });
     }
 
-    public async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[]): Promise<T> {
-        const con = await this.pool.getConnection();
+    public async runQuery<T extends mysql.QueryResult>(query: string, bindings: any[], existingConnection?: PoolConnection): Promise<T> {
+        const con = existingConnection ?? await this.pool.getConnection();
         try {
             const [result] = await con.query<T>(query, bindings);
             return result;
         } catch (err) {
             throw err;
         } finally {
-            con.release();
+            if (!existingConnection) {
+                con.release();
+            }
         }
     }
 
@@ -66,6 +68,47 @@ class MySqlConnection extends DbConnection {
     async delete(query: string, bindings: any[]): Promise<any> {
         const result = await this.runQuery<ResultSetHeader>(query, bindings);
         return result.affectedRows;
+    }
+
+    async transaction<T>(callback: TransactionCallback<T>): Promise<T> {
+        const connection = await this.pool.getConnection();
+        const trxClient = this.createTransactionClient(connection);
+
+        try {
+            await connection.beginTransaction();
+            const result = await callback(trxClient);
+            await connection.commit();
+            return result;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    private createTransactionClient(connection: PoolConnection): TransactionClient {
+        return {
+            rawQuery: async <T = ResultSetHeader>(query: string, bindings: any[] = []) => {
+                const result = await this.runQuery<mysql.QueryResult>(query, bindings, connection);
+                return result as T;
+            },
+            select: async (query: string, bindings: any[] = []) => {
+                return await this.runQuery<RowDataPacket[]>(query, bindings, connection);
+            },
+            insert: async (query: string, bindings: any[] = []) => {
+                const result = await this.runQuery<ResultSetHeader>(query, bindings, connection);
+                return result.insertId ?? null;
+            },
+            update: async (query: string, bindings: any[] = []) => {
+                const result = await this.runQuery<ResultSetHeader>(query, bindings, connection);
+                return result.affectedRows;
+            },
+            delete: async (query: string, bindings: any[] = []) => {
+                const result = await this.runQuery<ResultSetHeader>(query, bindings, connection);
+                return result.affectedRows;
+            }
+        };
     }
 
 }

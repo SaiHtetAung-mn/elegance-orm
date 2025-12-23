@@ -1,5 +1,5 @@
-import { Pool, QueryResult, QueryResultRow } from "pg";
-import { ConnectionOptions } from "../types";
+import { Pool, PoolClient, QueryResult, QueryResultRow } from "pg";
+import { ConnectionOptions, TransactionCallback, TransactionClient } from "../types";
 import DbConnection from "./DbConnection";
 
 class PostgreSqlConnection extends DbConnection {
@@ -22,14 +22,16 @@ class PostgreSqlConnection extends DbConnection {
         return sql.replace(/\?/g, () => `$${index++}`);
     }
 
-    private async runQuery<T extends QueryResultRow = QueryResultRow>(sql: string, bindings: any[]): Promise<QueryResult<T>> {
-        const client = await this.pool.connect();
+    private async runQuery<T extends QueryResultRow = QueryResultRow>(sql: string, bindings: any[], existingClient?: PoolClient): Promise<QueryResult<T>> {
+        const client = existingClient ?? await this.pool.connect();
         try {
             const text = this.normalizeQuery(sql);
             return await client.query<T>(text, bindings);
         }
         finally {
-            client.release();
+            if (!existingClient) {
+                client.release();
+            }
         }
     }
 
@@ -71,6 +73,54 @@ class PostgreSqlConnection extends DbConnection {
     async delete(query: string, bindings: any[]): Promise<number> {
         const result = await this.runQuery(query, bindings);
         return result.rowCount ?? 0;
+    }
+
+    async transaction<T>(callback: TransactionCallback<T>): Promise<T> {
+        const client = await this.pool.connect();
+        const trxClient = this.createTransactionClient(client);
+
+        try {
+            await client.query("BEGIN");
+            const result = await callback(trxClient);
+            await client.query("COMMIT");
+            return result;
+        } catch (error) {
+            await client.query("ROLLBACK");
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    private createTransactionClient(client: PoolClient): TransactionClient {
+        return {
+            rawQuery: async <T = any>(query: string, bindings: any[] = []) => {
+                const result = await this.runQuery(query, bindings, client);
+                return (result as unknown) as T;
+            },
+            select: async (query: string, bindings: any[] = []) => {
+                const result = await this.runQuery(query, bindings, client);
+                return result.rows;
+            },
+            insert: async (query: string, bindings: any[] = []) => {
+                const result = await this.runQuery(query, bindings, client);
+                if (result.rows.length === 0) {
+                    return null;
+                }
+
+                const firstRow = result.rows[0];
+                const firstKey = Object.keys(firstRow)[0];
+                return firstKey ? (firstRow as any)[firstKey] : null;
+            },
+            update: async (query: string, bindings: any[] = []) => {
+                const result = await this.runQuery(query, bindings, client);
+                return result.rowCount ?? 0;
+            },
+            delete: async (query: string, bindings: any[] = []) => {
+                const result = await this.runQuery(query, bindings, client);
+                return result.rowCount ?? 0;
+            }
+        };
     }
 }
 

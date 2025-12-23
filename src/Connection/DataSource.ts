@@ -1,5 +1,5 @@
 import Connection from "./Connection";
-import { ConnectionOptions } from "./types";
+import { ConnectionOptions, TransactionCallback } from "./types";
 
 class DataSource {
     private initialized = false;
@@ -50,6 +50,10 @@ class DataSource {
 
     async delete(query: string, bindings: any[]): Promise<number> {
         return await this.requireConnection().delete(query, bindings);
+    }
+
+    async transaction<T>(callback: TransactionCallback<T>): Promise<T> {
+        return await this.requireConnection().transaction(callback);
     }
 }
 
