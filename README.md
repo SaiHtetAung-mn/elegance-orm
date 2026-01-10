@@ -352,7 +352,9 @@ await dataSource.insert(
 await dataSource.destroy();
 ```
 
-### Transactions via DataSource
+### Transactions
+Database transactions are used to execute a set of database operations as a single unit of work ensuring data integrity. Elegance provides transaction management via datasource. Any query builder or model helpers you call inside the callback automatically share the same transaction context.
+
 ```ts
 await dataSource.transaction(async trx => {
   await trx.insert(
@@ -368,7 +370,6 @@ await dataSource.transaction(async trx => {
   await User.create({ name: "Tx example", email: "tx@example.com" });
 });
 ```
-Any query builder or model helpers you call inside the callback automatically share the same transaction context—no extra wiring needed.
 
 ### Conditional Migrations
 ```ts
