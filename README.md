@@ -1,62 +1,80 @@
 # Elegance ORM
 
-Elegance ORM is a minimalist object relational mapper (ORM) for Node.js projects. The interface emphasizes fluent, chainable methods so querying, filtering and shaping results stays conversational rather than imperative. In Elegance, each database
-table is represented by a `Model` class that behaves like a plain object with dirty tracking,
-fillable/guarded protection, and timestamp helpers. If you enjoy Laravel’s ergonomics, you’ll feel at home.
+Elegance is a small, fluent ORM for Node.js. It is designed for applications that want a Laravel-like database experience without hiding the underlying SQL.
 
----
+It provides:
 
-## 1. Overview
-- **Drivers:** PostgreSQL (`pg`), MySQL / MariaDB (`mysql2`), and SQLite (`sqlite3`).
-- **Language targets:** Works in both TypeScript and JavaScript projects (Node.js 18+).
-- **Design goals:** Fluent builder APIs, fillable/guarded protection, timestamp helpers, expressive schema blueprints, and zero-magic data sources.
+- PostgreSQL, MySQL/MariaDB, and SQLite drivers
+- fluent queries with parameter binding
+- active-record models with dirty tracking and timestamps
+- schema builders and migrations
+- transactions that work with raw queries, builders, and models
+- a CLI for initializing projects and managing migrations
 
----
+Elegance supports TypeScript and JavaScript projects and requires Node.js 18 or newer.
 
-## 2. Installation & Requirements
+> Elegance is currently beta software. Its API may change, and it is not yet intended for production use without your own testing and review.
+
+## Installation
+
 ```bash
 npm install elegance-orm
 ```
 
-- Requires **Node.js 18+**
-- The CLI binary is `elegance` (available via `npx elegance ...` or `npm install -g elegance-orm`).
+The package also provides the `elegance` command:
 
----
+```bash
+npx elegance <command>
+```
 
-## 3. Quick Start
+## Quick start
 
-### Step 1 – Initialize a project
+### 1. Create the project files
+
+From your project root, run:
+
 ```bash
 npx elegance init
 ```
-Generates `elegance.config.ts` and scaffolds folders for migrations/models.
 
-### Step 2 – Configure the DataSource
+This creates an `elegance.config.ts` file and the directories used by the CLI.
+
+### 2. Configure a data source
+
 ```ts
 // src/database/dataSource.ts
 import { DataSource } from "elegance-orm";
 
 const dataSource = new DataSource({
-  driver: "postgresql",           // "postgresql" | "mysql" | "sqlite"
-  host: "127.0.0.1",
-  port: 5432,
-  user: "app_user",
-  password: "secret",
-  database: "app_db",
-  maxPoolSize: 10
+  driver: "sqlite",
+  host: "",
+  port: 0,
+  user: "",
+  password: "",
+  database: "./database/app.sqlite"
 });
 
 export default dataSource;
 ```
 
-### Step 3 – Initialize the connection
+For PostgreSQL or MySQL, provide the corresponding host, port, credentials, and database name. See [Configuration](#configuration) for the complete option list.
+
+### 3. Initialize the connection
+
 ```ts
 import dataSource from "./database/dataSource";
 
 await dataSource.initialize();
+
+// Use models, Schema, or dataSource queries here.
+
+await dataSource.destroy();
 ```
 
-### Step 4 – Define a model
+`DataSource` is a convenient application-facing wrapper. Internally, Elegance uses one active connection, so initialize the data source before creating builders or running schema operations.
+
+### 4. Define a model
+
 ```ts
 import { Model } from "elegance-orm";
 
@@ -68,7 +86,10 @@ export default class User extends Model {
 }
 ```
 
-### Step 5 – Run your first query
+Models should explicitly declare the attributes that may be mass-assigned through `create()` and `fill()`.
+
+### 5. Query and save records
+
 ```ts
 const activeUsers = await User.query()
   .select("id", "name", "email")
@@ -77,183 +98,314 @@ const activeUsers = await User.query()
   .limit(10)
   .get();
 
-const user = await User.create({ name: "Ada", email: "ada@example.com", status: "active" });
+const user = await User.create({
+  name: "Ada",
+  email: "ada@example.com",
+  status: "active"
+});
+
 user.status = "inactive";
 await user.save();
 ```
 
----
+## Models
 
-## 4. Models
-In Elegance, every database table is represented by a related “Model” that handles interactions with that table. Beyond fetching data, Elegance models also let you create, modify and remove records in the table. Models extend `Model` and represent a single table. They behave like plain objects wrapped in a proxy so attribute reads/writes automatically respect guardrails.
+A model represents one database table. Attribute values are exposed through the model instance, while the model keeps the original values so that `save()` can update only changed columns.
 
-### Guardrails & Identity
-- `table` – physical table backing the model.
-- `primaryKey` – defaults to `"id"`, but can be any column.
-- `fillable` – whitelist for mass assignment.
-- `guarded` – blacklist (set to `["*"]` to deny everything by default).
-- `hidden` – attributes excluded when calling `toJSON()`.
-- `timestamps` – enable/disable automatic `created_at` / `updated_at`.
-- `CREATED_AT` / `UPDATED_AT` – override these names if your schema differs.
+### Model properties
 
 ```ts
 class Article extends Model {
   protected table = "articles";
+  protected primaryKey = "id";
   protected fillable = ["title", "body", "status"];
   protected guarded = ["user_id", "is_admin"];
   protected hidden = ["user_id"];
+  protected timestamps = true;
 }
 ```
 
-### Mass Assignment
+| Property | Default | Purpose |
+| --- | --- | --- |
+| `table` | `""` | Physical table name. |
+| `primaryKey` | `"id"` | Primary-key column used by `find()` and model updates. |
+| `fillable` | `["*"]` | Mass-assignment allowlist. Declare an explicit list for predictable behavior. |
+| `guarded` | `[]` | Attributes excluded from mass assignment. Use `["*"]` to deny all by default. |
+| `hidden` | `[]` | Attributes removed by `toJSON()`. |
+| `timestamps` | `true` | Adds `created_at` and `updated_at` values during model saves. |
+| `CREATED_AT` | `"created_at"` | Name of the creation timestamp column. |
+| `UPDATED_AT` | `"updated_at"` | Name of the update timestamp column. |
+
+### Creating and updating
+
 ```ts
-await Article.create({
+const article = await Article.create({
   title: "Hello",
   body: "World",
-  status: "draft",
+  status: "draft"
+});
+
+article.status = "published";
+await article.save();
+```
+
+`create()` inserts a record immediately. `save()` inserts new models and updates existing models. Existing models only write dirty attributes. Timestamp columns are managed automatically when timestamps are enabled.
+
+### Model methods
+
+| Method | Returns | Description |
+| --- | --- | --- |
+| `Model.create(attributes)` | `Promise<Model>` | Creates and inserts a model using mass-assignment rules. |
+| `model.fill(attributes)` | `void` | Assigns allowed attributes. Totally guarded models throw `MassAssignmentException` for rejected input. |
+| `model.save()` | `Promise<boolean>` | Inserts a new model or updates dirty attributes on an existing model. |
+| `model.toJSON()` | `object` | Returns model attributes without hidden columns. |
+
+### Mass assignment
+
+```ts
+class AdminUser extends Model {
+  protected table = "users";
+  protected fillable = ["name", "email"];
+  protected guarded = ["is_admin"];
+}
+
+await AdminUser.create({
+  name: "Ada",
+  email: "ada@example.com",
   is_admin: true // throws MassAssignmentException
 });
 ```
 
-Set `guarded = ["*"]` and explicitly list what is safe in `fillable` when consuming untrusted payloads.
+For untrusted input, keep `fillable` explicit and use `guarded = ["*"]` when you want to deny all attributes unless they are listed in `fillable`.
 
-### Lifecycle
-- `Model.create(attributes)` – insert one record immediately.
-- `model.save()` – insert (if new) or only update dirty columns.
-- Dirty tracking is automatic, so `save()` only sends changed fields.
-- Timestamps populate automatically when `timestamps = true`.
+`query().insert()` is intended for bulk or trusted data imports. It bypasses model fillable checks and does not add model timestamps.
 
----
+## Query builder
 
-## 5. Query Builder
-The builder provides a fluent interface for composing SQL while retaining parameter binding safety.
-Inspect the generated SQL via `toSql()` to see the final statement and placeholders.
-<br/>
+Call `Model.query()` to create a builder. Builders are fluent and use bound values for conditions and mutations.
 
-Let's see how raw sql is generated by below code:
+Use `toSql()` when you want to inspect the generated SQL:
 
 ```ts
-const builder = User.query("u")
+const query = User.query("u")
   .select("u.id", "u.name", "profiles.bio")
   .leftJoin("profiles", "u.id", "=", "profiles.user_id")
   .where("u.status", "=", "active")
   .whereBetween("u.created_at", ["2024-01-01", "2024-12-31"])
   .orderBy("u.created_at", "desc")
-  .offset(0)
-  .limit(5);
+  .limit(5)
+  .offset(0);
 
-console.log(builder.toSql());
+console.log(query.toSql());
 ```
-<br/>
 
-Sample raw SQL output
-```sql
-select "u"."id", "u"."name", "profiles"."bio"
-from "users" as "u"
-left join "profiles" on "u"."id" = "profiles"."user_id"
-where "u"."status" = ?
-and "u"."created_at" between ? and ?
-order by "u"."created_at" desc
-limit 5 offset 0
-```
+The SQL uses `?` placeholders. PostgreSQL converts those placeholders to its numbered parameter format before execution.
 
 ### Selecting
-- `select(...columns)` / `addSelect(...columns)`
-- `distinct()`
-- `toSql()`
-
-```ts
-User.query("u")
-  .select("u.id", "u.email")
-  .distinct()
-  .toSql(); // inspect generated SQL
-```
-
-### Filtering
-- `where`, `andWhere`, `orWhere`
-- `whereIn` / `whereNotIn`
-- `whereBetween` / `whereNotBetween`
-- `whereNull` / `whereNotNull`
 
 ```ts
 await User.query()
+  .select("id", "name")
+  .addSelect("email")
+  .distinct()
+  .get();
+```
+
+| Method | Description |
+| --- | --- |
+| `select(...columns)` | Adds columns to the selection list. |
+| `addSelect(...columns)` | Adds columns to the selection list. |
+| `distinct()` | Adds `distinct` to the select statement. |
+
+### Filtering
+
+```ts
+const users = await User.query()
   .where("status", "=", "active")
   .whereIn("role", ["admin", "editor"])
   .whereBetween("created_at", ["2024-01-01", "2024-12-31"])
+  .whereNull("deleted_at")
   .get();
 ```
+
+| Method | Description |
+| --- | --- |
+| `where(column, operator, value)` | Adds an `and` basic condition. |
+| `andWhere(column, operator, value)` | Adds an `and` basic condition. A `null` operator is treated as `=`. |
+| `orWhere(column, operator, value)` | Adds an `or` basic condition. A `null` operator is treated as `=`. |
+| `whereIn(column, values)` | Matches one of a non-empty list of values. |
+| `whereNotIn(column, values)` | Excludes a non-empty list of values. |
+| `whereBetween(column, [from, to])` | Matches an inclusive range. |
+| `whereNotBetween(column, [from, to])` | Excludes an inclusive range. |
+| `whereNull(column)` | Matches `NULL`. |
+| `whereNotNull(column)` | Excludes `NULL`. |
 
 ### Joins
-- `join` (inner), `leftJoin`
-- Accepts table aliases, custom operators, and multiple clauses.
 
 ```ts
-await Post.query("p")
-  .leftJoin("users as u", "p.user_id", "=", "u.id")
+const posts = await Post.query("p")
   .select("p.id", "p.title", "u.name as author")
+  .leftJoin("users as u", "p.user_id", "=", "u.id")
   .get();
 ```
 
-### Grouping & Aggregates
-- `groupBy`, `having`
-- Aggregate helpers: `count`, `sum`, `avg`, `min`, `max`
+| Method | Description |
+| --- | --- |
+| `join(table, first, operator, second)` | Adds an inner join. |
+| `innerJoin(table, first, operator, second)` | Alias for an inner join. |
+| `leftJoin(table, first, operator, second)` | Adds a left join. |
+
+Table aliases and qualified column names are supported.
+
+### Grouping and aggregates
 
 ```ts
-const summary = await Order.query()
+const count = await User.query()
+  .where("status", "=", "active")
+  .count();
+
+const totalVisits = await User.query().sum("visits");
+
+const summaries = await User.query()
   .select("status")
   .groupBy("status")
   .having("status", "!=", "archived")
   .get();
 ```
 
-### Ordering & Pagination
-- `orderBy`, `orderByDesc`
-- `latest`, `oldest`
-- `limit`, `offset`
+| Method | Returns | Description |
+| --- | --- | --- |
+| `count(column = "*")` | `Promise<number>` | Counts matching rows. |
+| `sum(column)` | `Promise<number>` | Sums a column. |
+| `avg(column)` | `Promise<number>` | Calculates the average. |
+| `min(column)` | `Promise<number>` | Returns the minimum value. |
+| `max(column)` | `Promise<number>` | Returns the maximum value. |
+
+### Ordering and pagination
 
 ```ts
-await Article.query()
+const page = await Article.query()
   .latest("published_at")
   .limit(10)
-  .offset(page * 10)
+  .offset(20)
   .get();
 ```
 
-### Fetching Helpers
-- `get()` – all rows.
-- `first()` – first row or `null`.
-- `find(id)` – shorthand for PK lookup.
+| Method | Description |
+| --- | --- |
+| `orderBy(column, direction = "asc")` | Adds ascending or descending ordering. |
+| `orderByDesc(column)` | Adds descending ordering. |
+| `latest(column = primaryKey)` | Orders by a column descending. |
+| `oldest(column = primaryKey)` | Orders by a column ascending. |
+| `limit(value)` | Limits the number of rows. |
+| `offset(value)` | Skips rows before returning results. |
 
-### Mutations
-- `create(attributes)` – returns inserted row as model.
-- `insert(records[])` – bulk insert via builder and **skips** fillable checks.
-- `insertGetId(attributes)` – single row insert returning the generated key.
-- `update(attributes)` – updates rows matching current builder constraints.
-- `delete()` – deletes rows matching current builder constraints.
+### Fetching records
+
+| Method | Returns | Description |
+| --- | --- | --- |
+| `get()` | `Promise<Model[]>` | Returns all matching models. |
+| `first()` | `Promise<Model \| null>` | Returns the first matching model. |
+| `find(id)` | `Promise<Model \| null>` | Looks up a model by its primary key. |
+
+### Mutating records
 
 ```ts
 await User.query().insert([
-  { name: "Bulk One", email: "bulk1@example.com" },
-  { name: "Bulk Two", email: "bulk2@example.com" }
+  { name: "Grace", email: "grace@example.com" },
+  { name: "Katherine", email: "katherine@example.com" }
 ]);
+
+await User.query()
+  .where("status", "=", "draft")
+  .update({ status: "published" });
+
+await User.query()
+  .where("id", "=", 10)
+  .delete();
 ```
 
----
+| Method | Returns | Description |
+| --- | --- | --- |
+| `insert(records)` | `Promise<void>` | Performs a bulk insert. Bypasses fillable checks and model timestamps. |
+| `insertGetId(attributes)` | `Promise<number \| null>` | Inserts one row and returns its generated key when supported by the driver. |
+| `update(attributes)` | `Promise<number>` | Updates rows matching the current constraints. |
+| `delete()` | `Promise<number>` | Deletes rows matching the current constraints. |
+| `toSql()` | `string` | Returns the compiled select SQL without executing it. |
 
-## 6. Schema & Migrations
-Migrations act like a shared change log for your database, helping teams track, apply, and synchronize schema changes over time. Migrations extend the `Migration` base class to describe tables in plain
-language which Elegance compiles to driver-specific SQL.
+## Schema builder
 
-### Creating Migrations
-```bash
-npx elegance make:migration create_users_table --table=users --create
-npx elegance make:migration update_users_table --table=users --update
+Schema operations are available through the static `Schema` facade:
+
+```ts
+import { Schema } from "elegance-orm";
+
+await Schema.create("users", table => {
+  table.id();
+  table.string("name");
+  table.string("email").unique();
+  table.string("status").default("pending");
+  table.timestamps();
+});
 ```
 
-Use `--create` to scaffold a `Schema.create` migration for a new table, and `--update` to scaffold a `Schema.table` migration when you only need to modify an existing table. Pair either flag with `--table=<name>` or follow the `create_users_table` naming convention so the table can be inferred automatically.
+To modify an existing table:
 
-### Migration Structure
-A migration class contains two methods: up and down. The up method is used to add new tables, columns, or indexes to your database, while the down method should reverse the operations performed by the up method.
+```ts
+await Schema.table("users", table => {
+  table.string("display_name").nullable();
+  table.index(["display_name"]);
+});
+```
+
+### Schema methods
+
+| Method | Returns | Description |
+| --- | --- | --- |
+| `Schema.create(table, callback)` | `Promise<void>` | Creates a table from a blueprint. |
+| `Schema.table(table, callback)` | `Promise<void>` | Alters an existing table from a blueprint. |
+| `Schema.drop(table)` | `Promise<void>` | Drops a table. |
+| `Schema.dropIfExists(table)` | `Promise<void>` | Drops a table if it exists. |
+| `Schema.renameColumn(table, from, to)` | `Promise<void>` | Renames a column. |
+| `Schema.dropColumns(table, columns)` | `Promise<void>` | Removes one or more columns. |
+| `Schema.hasTable(table)` | `Promise<boolean>` | Checks whether a table exists. |
+| `Schema.hasColumn(table, column)` | `Promise<boolean>` | Checks whether a column exists. |
+
+### Column methods
+
+| Group | Methods |
+| --- | --- |
+| IDs | `id`, `increment`, `bigIncrement`, `smallIncrement` |
+| Integers | `integer`, `bigInteger`, `smallInteger` |
+| Text | `char`, `string`, `text`, `longText` |
+| Date and time | `date`, `dateTime`, `time`, `timestamp`, `year`, `timestamps` |
+| Other | `uuid`, `json`, `binary`, `boolean`, `float`, `double` |
+
+Column definitions support `nullable()`, `default()`, `unsigned()`, `useCurrent()`, `useCurrentOnUpdate()`, `onUpdate()`, `after()`, `first()`, `comments()`, `index()`, `primary()`, and `unique()`.
+
+### Indexes and foreign keys
+
+```ts
+await Schema.create("posts", table => {
+  table.id();
+  table.integer("author_id");
+  table.string("title");
+
+  table.foreign("author_id")
+    .references("id")
+    .on("users")
+    .onDelete("cascade")
+    .onUpdate("cascade");
+});
+```
+
+Blueprint methods for indexes and constraints are `primary()`, `unique()`, `index()`, `dropPrimary()`, `dropUnique()`, `dropIndex()`, and `dropForeign()`.
+
+The generated SQL is driver-specific. Some schema features, especially table alterations and foreign-key changes, have different capabilities across SQLite, PostgreSQL, and MySQL.
+
+## Migrations
+
+A migration is a versioned pair of `up()` and `down()` methods:
 
 ```ts
 import { Migration, Schema } from "elegance-orm";
@@ -263,14 +415,8 @@ export default class CreateUsersTable extends Migration {
     await Schema.create("users", table => {
       table.id();
       table.string("name");
-      table.string("email").unique(["email"]);
-      table.string("status").default("pending");
+      table.string("email").unique();
       table.timestamps();
-      table.integer("role_id");
-      table.foreign("role_id")
-           .references("id")
-           .on("user_roles")
-           .onDelete("cascade");
     });
   }
 
@@ -280,80 +426,29 @@ export default class CreateUsersTable extends Migration {
 }
 ```
 
-### Schema API Highlights
-- `Schema.create(table, callback)`
-- `Schema.table(table, callback)`
-- `Schema.drop(...)`, `Schema.dropIfExists(...)`
-- `Schema.renameColumn(table, from, to)`
-- `Schema.dropColumns(table, columns)`
-- `Schema.hasTable(table)`, `Schema.hasColumn(table, column)`
+Generate migration files with:
 
-### Column Helpers
-- IDs: `id`, `increment`, `bigIncrement`, `smallIncrement`
-- Integers: `integer`, `bigInteger`, `smallInteger`
-- Text: `char`, `string`, `text`, `longText`
-- Dates: `date`, `dateTime`, `time`, `timestamp`, `year`, `timestamps()`
-- JSON & binary: `json`, `binary`
-- Boolean: `boolean`
-- UUID: `uuid`
+```bash
+npx elegance make:migration create_users_table --create
+npx elegance make:migration add_status_to_users_table --update
+```
 
-### Indexes & FK Constraints
-- `primary`, `unique`, `index`, `dropPrimary`, `dropUnique`, `dropIndex`
-- `foreign(column).references(column).on(table).onDelete("cascade").onUpdate("cascade")`
+You can provide a table explicitly with `--table=users`. The migration repository records executed files in the configured migrations table.
 
-### Running migration:
-To run migrations
+Run migrations with:
 
 ```bash
 npx elegance migrate
-```
-
-### Rolling back migration:
-To roll back the latest migrations, use
-
-```bash
 npx elegance migrate:rollback
-```
-
-### Roll back and migrate using a single command
-This command will roll back all migrations and recreate entire database tables.
-
-```bash
+npx elegance migrate:rollback --step=2
 npx elegance migrate:refresh
 ```
 
----
+`migrate:rollback` rolls back the latest batch by default. `migrate:refresh` rolls back recorded migrations and runs them again.
 
-## 7. Recipes
+## Transactions
 
-### Bulk Insert with Guarded Columns
-```ts
-await User.query().insert([
-  { name: "Bulk One", email: "bulk1@example.com" },
-  { name: "Bulk Two", email: "bulk2@example.com" }
-]);
-```
-Useful when syncing fixtures or importing CSV data. Because it bypasses `fillable`, validate your payload first.
-
-### Raw Queries via DataSource
-```ts
-import dataSource from "./database/dataSource";
-import User from "./app/models/User";
-
-await dataSource.initialize();
-const rows = await dataSource.rawQuery(
-  "select * from users where email like ?",
-  ["%example.com"]
-);
-await dataSource.insert(
-  "insert into audit_log (payload) values (?)",
-  [JSON.stringify(rows)]
-);
-await dataSource.destroy();
-```
-
-### Transactions
-Database transactions are used to execute a set of database operations as a single unit of work ensuring data integrity. Elegance provides transaction management via datasource. Any query builder or model helpers you call inside the callback automatically share the same transaction context.
+Use `DataSource.transaction()` when several operations must succeed or fail together:
 
 ```ts
 await dataSource.transaction(async trx => {
@@ -362,65 +457,75 @@ await dataSource.transaction(async trx => {
     [userId, total]
   );
 
-  await trx.update(
-    "update users set last_order_total = ? where id = ?",
-    [total, userId]
-  );
+  await User.query()
+    .where("id", "=", userId)
+    .update({ last_order_total: total } as any);
 
-  await User.create({ name: "Tx example", email: "tx@example.com" });
+  await User.create({
+    name: "Transaction User",
+    email: "tx@example.com"
+  });
 });
 ```
 
-### Conditional Migrations
+Raw queries, builders, and models called inside the callback automatically use the active transaction. If the callback throws, the transaction is rolled back. Nested transactions reuse the current transaction; savepoints are not currently provided.
+
+The transaction callback also receives a low-level client with `rawQuery`, `select`, `insert`, `update`, and `delete` methods.
+
+## Raw database access
+
 ```ts
-if (!(await Schema.hasTable("settings"))) {
-  await Schema.create("settings", table => {
-    table.id();
-    table.string("key").unique(["key"]);
-    table.string("value");
-    table.timestamps();
-  });
-}
+const rows = await dataSource.select(
+  "select * from users where email like ?",
+  ["%example.com"]
+);
+
+await dataSource.insert(
+  "insert into audit_log (payload) values (?)",
+  [JSON.stringify(rows)]
+);
 ```
 
-### Available Methods
-- `destroy`
-- `rawQuery`
-- `select`
-- `insert`
-- `update`
-- `delete`
-- `transaction`
+### DataSource methods
 
----
-
-## 8. CLI Reference
-Elegance ships a CLI binary named `elegance`. After installing
-the package you can:
-
-- run commands directly with `npx elegance <command>` (local install), or
-- install globally (`npm install -g elegance-orm`) and call `elegance <command>`.
-
-Run the `init` command once per project to scaffold `elegance.config.ts`.
-
-| Command | Description | Options |
+| Method | Returns | Description |
 | --- | --- | --- |
-| `init` | Scaffold `elegance.config.ts` in the project root. | – |
-| `make:migration <name>` | Generate a timestamped migration. | `--table=users`, `--create`, `--update` |
-| `make:model <path>` | Create a model file inside the configured directory. | Supports nested paths (`Admin/User`) |
-| `migrate` | Run all pending migrations. | – |
-| `migrate:rollback` | Roll back the latest batch. | – |
-| `migrate:refresh` | Drop all tables and rerun every migration. | – |
+| `initialize(callback?)` | `Promise<void>` | Opens the configured connection. |
+| `destroy()` | `Promise<void>` | Closes the connection. |
+| `isInitialized()` | `boolean` | Reports whether the connection is initialized. |
+| `rawQuery(query, bindings?)` | `Promise<any>` | Executes a raw statement. |
+| `select(query, bindings?)` | `Promise<any[]>` | Executes a query and returns rows. |
+| `insert(query, bindings?)` | `Promise<any>` | Executes an insert and returns the driver result or generated ID. |
+| `update(query, bindings)` | `Promise<number>` | Executes an update and returns affected rows. |
+| `delete(query, bindings)` | `Promise<number>` | Executes a delete and returns affected rows. |
+| `transaction(callback)` | `Promise<T>` | Runs the callback inside a transaction. |
 
----
+## CLI
 
-## 9. Configuration Reference
+| Command | Purpose | Options |
+| --- | --- | --- |
+| `init` | Create the project configuration and directories. | — |
+| `make:migration <name>` | Generate a timestamped migration. | `--table`, `--create`, `--update` |
+| `make:model <path>` | Generate a model file. | Nested paths are supported. |
+| `migrate` | Run pending migrations. | — |
+| `migrate:rollback` | Roll back the latest migration batch. | `--step=2` |
+| `migrate:refresh` | Roll back and rerun migrations. | — |
 
-`elegance.config.ts` tells the CLI where to find your DataSource, migrations, and models.
+## Configuration
+
+The CLI looks for one of these files in the project root:
+
+```text
+elegance.config.ts
+elegance.config.js
+elegance.config.cjs
+elegance.config.mjs
+elegance.config.json
+```
+
+Example:
 
 ```ts
-import dataSource from "./src/database/dataSource";
-
 const config = {
   dataSource: "./src/database/dataSource",
   migrations: {
@@ -436,17 +541,18 @@ const config = {
 export default config;
 ```
 
-| Key | Description |
+| Option | Description |
 | --- | --- |
-| `dataSource` | Path to a module exporting a `DataSource` instance. |
-| `migrations.directory` | Folder where migration files live. |
-| `migrations.table` | Table Elegance uses to track executed migrations (defaults to `migrations`). |
-| `models.directory` | Destination for `make:model`. Can be nested. |
-| `language` | `"typescript"` or `"javascript"` – controls CLI templates. |
+| `dataSource` | Module path exporting a `DataSource` instance. |
+| `migrations.directory` | Directory containing migration files. |
+| `migrations.table` | Table used to record executed migrations. Defaults to `migrations`. |
+| `models.directory` | Destination directory for generated models. |
+| `language` | `typescript` or `javascript`; controls generated files. |
 
-### DataSourceOptions
+### Data source options
+
 ```ts
-type ConnectionOptions = {
+type DataSourceOptions = {
   driver: "mysql" | "postgresql" | "sqlite";
   host: string;
   port: number;
@@ -457,8 +563,30 @@ type ConnectionOptions = {
 };
 ```
 
-For SQLite, set `host` to an empty string and `database` to a `.sqlite` file path.
+For SQLite, `host`, `port`, `user`, and `password` are unused; `database` is the path to the SQLite file.
 
-⚠️ **Status**: <br/>
-Elegance ORM is currently in beta and shared as an experimental project.
-It is not yet intended for production use.
+## Public exports
+
+The package exports:
+
+```ts
+import {
+  DataSource,
+  Model,
+  Migration,
+  Schema,
+  MassAssignmentException
+} from "elegance-orm";
+```
+
+It also exports the `DataSourceOptions`, `TransactionClient`, and `TransactionCallback` types.
+
+## Development
+
+```bash
+npm install
+npm run build
+npm test
+```
+
+The SQLite tests run without an external service. PostgreSQL integration tests require a local PostgreSQL instance configured for the test suite.
