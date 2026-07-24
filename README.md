@@ -564,29 +564,3 @@ type DataSourceOptions = {
 ```
 
 For SQLite, `host`, `port`, `user`, and `password` are unused; `database` is the path to the SQLite file.
-
-## Public exports
-
-The package exports:
-
-```ts
-import {
-  DataSource,
-  Model,
-  Migration,
-  Schema,
-  MassAssignmentException
-} from "elegance-orm";
-```
-
-It also exports the `DataSourceOptions`, `TransactionClient`, and `TransactionCallback` types.
-
-## Development
-
-```bash
-npm install
-npm run build
-npm test
-```
-
-The SQLite tests run without an external service. PostgreSQL integration tests require a local PostgreSQL instance configured for the test suite.

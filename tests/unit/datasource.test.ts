@@ -2,8 +2,8 @@ import { strict as assert } from "assert";
 import fs from "fs/promises";
 import path from "path";
 import { afterEach, beforeEach, describe, it } from "mocha";
-import { DataSource, DataSourceOptions } from "../../src";
-import Model from "../../src/model/Model";
+import { DataSource, DataSourceOptions } from "@elegance";
+import Model from "@model/Model";
 
 class TransactionTestUser extends Model {
     protected table = "ds_transactions";

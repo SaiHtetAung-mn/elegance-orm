@@ -1,0 +1,24 @@
+import DataSource from "@connection/DataSource";
+import { MigrationOptions } from "@connection/types";
+import Command from "@console/Command";
+import { getCliConfig } from "@console/config";
+
+abstract class DatabaseCommand extends Command {
+    protected dataSource!: DataSource;
+    protected migrationsConfig?: MigrationOptions;
+
+    async initialize(): Promise<void> {
+        const cliConfig = getCliConfig();
+        this.dataSource = cliConfig.dataSource;
+        this.migrationsConfig = cliConfig.migrations;
+        await this.dataSource.initialize();
+    }
+
+    async teardown(): Promise<void> {
+        if (this.dataSource) {
+            await this.dataSource.destroy();
+        }
+    }
+}
+
+export default DatabaseCommand;

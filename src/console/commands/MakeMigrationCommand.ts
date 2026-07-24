@@ -1,0 +1,54 @@
+import fs from "fs/promises";
+import Command from "@console/Command";
+import MigrationCreator, { MigrationLanguage } from "@migration/MigrationCreator";
+import { getCliConfig } from "@console/config";
+import { parseCommandArgs } from "@console/utils/argParser";
+
+class MakeMigrationCommand extends Command {
+    signature = "make:migration";
+    description = "Create a new migration file";
+    private directory!: string;
+    private language: MigrationLanguage = "typescript";
+
+    async initialize(): Promise<void> {
+        await super.initialize();
+        const cliConfig = getCliConfig();
+        const migrationsConfig = cliConfig.migrations;
+        if (!migrationsConfig) {
+            throw new Error("Migrations configuration is missing from the connection options.");
+        }
+
+        this.directory = migrationsConfig.directory;
+        this.language = cliConfig.language;
+    }
+
+    async handle(args: string[]): Promise<void> {
+        const { positional, options } = parseCommandArgs(args);
+        const name = positional[0];
+        if (!name) {
+            throw new Error("Migration name is required.");
+        }
+
+        const table = typeof options.table === "string" ? options.table : undefined;
+        const createOption = typeof options.create === "string"
+            ? options.create
+            : options.create === true;
+        const updateOption = options.update === true;
+
+        if (createOption && updateOption) {
+            throw new Error("The --create and --update flags cannot be used together.");
+        }
+
+        const creator = new MigrationCreator(this.directory, this.language);
+        const filePath = await creator.create(name, {
+            table,
+            create: createOption,
+            update: updateOption
+        });
+
+        await fs.chmod(filePath, 0o644);
+        console.log(`Created migration: ${filePath}`);
+    }
+}
+
+export default MakeMigrationCommand;

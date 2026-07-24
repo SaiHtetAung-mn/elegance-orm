@@ -1,7 +1,7 @@
 import { strict as assert } from "assert";
-import { Model } from "../../src";
-import Connection from "../../src/connection/Connection";
-import { QueryConnectionStub } from "./helpers";
+import { Model } from "@elegance";
+import Connection from "@connection/Connection";
+import { QueryConnectionStub } from "@tests/unit/helpers";
 
 class QueryTestModel extends Model {
     protected table = "users";

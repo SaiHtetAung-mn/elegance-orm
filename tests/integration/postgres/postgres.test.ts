@@ -1,10 +1,10 @@
 import { strict as assert } from "assert";
 import { after, before, describe, it } from "mocha";
-import Connection from "../../../src/connection/Connection";
-import { DataSourceOptions } from "../../../src";
-import Model from "../../../src/model/Model";
-import operatorEnum from "../../../src/query/enums/operator";
-import Schema from "../../../src/schema/Schema";
+import Connection from "@connection/Connection";
+import { DataSourceOptions } from "@elegance";
+import Model from "@model/Model";
+import operatorEnum from "@query/enums/operator";
+import Schema from "@schema/Schema";
 
 class PostgresUser extends Model {
     protected table = "integration_users";

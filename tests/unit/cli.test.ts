@@ -1,7 +1,7 @@
 import { strict as assert } from "assert";
-import CommandRunner from "../../src/console/CommandRunner";
-import { FakeCommand } from "./helpers";
-import { registerDefaultCommands } from "../../src/console/registerCommands";
+import CommandRunner from "@console/CommandRunner";
+import { FakeCommand } from "@tests/unit/helpers";
+import { registerDefaultCommands } from "@console/registerCommands";
 
 describe("Unit - CLI and Commands", () => {
     it("registers and lists commands", () => {

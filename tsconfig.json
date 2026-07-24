@@ -27,8 +27,19 @@
     /* Modules */
     "module": "commonjs",                                /* Specify what module code is generated. */
     "moduleResolution": "node",
-    // "baseUrl": "./",                                  /* Specify the base directory to resolve non-relative module names. */
-    // "paths": {},                                      /* Specify a set of entries that re-map imports to additional lookup locations. */
+    "baseUrl": ".",
+    "paths": {
+      "@elegance": ["src/index.ts"],
+      "@connection/*": ["src/connection/*"],
+      "@console/*": ["src/console/*"],
+      "@exception/*": ["src/exception/*"],
+      "@migration/*": ["src/migration/*"],
+      "@model/*": ["src/model/*"],
+      "@query/*": ["src/query/*"],
+      "@schema/*": ["src/schema/*"],
+      "@utils/*": ["src/utils/*"],
+      "@tests/*": ["tests/*"]
+    },
     // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
     // "typeRoots": [],                                  /* Specify multiple folders that act like './node_modules/@types'. */
     // "types": [],                                      /* Specify type package names to be included without being referenced in a source file. */
