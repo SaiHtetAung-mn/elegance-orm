@@ -135,6 +135,10 @@ class Blueprint {
         this.timestamp("updated_at").nullable();
     }
 
+    softDeletes(column: string = "deleted_at"): ColumnDefinition {
+        return this.timestamp(column).nullable();
+    }
+
     year(column: string): ColumnDefinition {
         return this.addColumn("year", column);
     }
@@ -207,6 +211,10 @@ class Blueprint {
 
     dropColumns(columns: string[]): void {
         this.addCommand("dropColumn", { columns });
+    }
+
+    dropSoftDeletes(column: string = "deleted_at"): void {
+        this.dropColumns([column]);
     }
 
     dropIfExists(): void {

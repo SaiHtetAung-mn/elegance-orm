@@ -34,6 +34,20 @@ class SqlitePost extends Model {
     protected fillable = ["title", "author_id"];
 }
 
+class SoftDeletingSqliteUser extends Model {
+    protected table = "integration_soft_delete_users";
+    protected fillable = ["name"];
+    protected softDeletes = true;
+}
+
+class CustomSoftDeletingSqliteRecord extends Model {
+    protected table = "integration_custom_soft_delete_records";
+    protected fillable = ["name"];
+    protected timestamps = false;
+    protected softDeletes = true;
+    protected readonly DELETED_AT = "removed_at";
+}
+
 const dbPath = path.join(process.cwd(), "tmp", "sqlite", "integration.sqlite3");
 const sqliteConfig: DataSourceOptions = {
     driver: "sqlite",
@@ -285,6 +299,114 @@ describe("Integration - SQLite (real database)", () => {
         assert.equal(avg, 7.5);
         assert.equal(min, 7);
         assert.equal(max, 8);
+    });
+
+    it("soft deletes, restores, and permanently deletes records", async () => {
+        await ensureConnection();
+        await Schema.dropIfExists("integration_soft_delete_users");
+        await Schema.create("integration_soft_delete_users", table => {
+            table.id();
+            table.string("name");
+            table.softDeletes();
+            table.timestamps();
+        });
+
+        const active = await SoftDeletingSqliteUser.create({ name: "Active" });
+        const archived = await SoftDeletingSqliteUser.create({ name: "Archived" });
+        await SoftDeletingSqliteUser.create({ name: "Other" });
+        const forceTarget = await SoftDeletingSqliteUser.create({ name: "Force Target" });
+
+        assert.equal(await archived.delete(), true);
+        assert.equal(archived.trashed(), true);
+        assert.equal(await archived.delete(), true);
+        assert.equal(await SoftDeletingSqliteUser.query().count(), 3);
+        assert.equal(await SoftDeletingSqliteUser.query().withTrashed().count(), 4);
+        assert.equal(await SoftDeletingSqliteUser.query().onlyTrashed().count(), 1);
+        assert.equal(await SoftDeletingSqliteUser.query().find(archived.id), null);
+
+        const visible = await SoftDeletingSqliteUser.query()
+            .where("name", "=", "Active")
+            .orWhere("name", "=", "Archived")
+            .get();
+        assert.deepEqual(visible.map(user => user.name), ["Active"]);
+
+        const aliased = await SoftDeletingSqliteUser.query("u")
+            .select("u.id", "u.name")
+            .orderBy("u.id")
+            .get();
+        assert.equal(aliased.length, 3);
+
+        const ignoredUpdate = await SoftDeletingSqliteUser.query()
+            .where("id", "=", archived.id)
+            .update({ name: "Must Stay Archived" } as any);
+        assert.equal(ignoredUpdate, 0);
+
+        assert.equal(await archived.restore(), true);
+        assert.equal(archived.trashed(), false);
+        assert.equal(await archived.restore(), true);
+        assert.equal(await SoftDeletingSqliteUser.query().count(), 4);
+
+        const massDeleted = await SoftDeletingSqliteUser.query()
+            .where("id", "=", active.id)
+            .delete();
+        assert.equal(massDeleted, 1);
+        assert.equal(await SoftDeletingSqliteUser.query().onlyTrashed().count(), 1);
+
+        const massRestored = await SoftDeletingSqliteUser.query()
+            .where("id", "=", active.id)
+            .restore();
+        assert.equal(massRestored, 1);
+        assert.equal(await SoftDeletingSqliteUser.query().onlyTrashed().count(), 0);
+
+        await active.delete();
+        const trashed = await SoftDeletingSqliteUser.query()
+            .onlyTrashed()
+            .find(active.id);
+        assert.ok(trashed);
+        assert.equal(await trashed!.forceDelete(), true);
+        assert.equal(await SoftDeletingSqliteUser.query().withTrashed().count(), 3);
+
+        await forceTarget.delete();
+        const forceDeleted = await SoftDeletingSqliteUser.query()
+            .onlyTrashed()
+            .where("id", "=", forceTarget.id)
+            .forceDelete();
+        assert.equal(forceDeleted, 1);
+        assert.equal(await SoftDeletingSqliteUser.query().withTrashed().count(), 2);
+
+        const restored = await SoftDeletingSqliteUser.query()
+            .onlyTrashed()
+            .restore();
+        assert.equal(restored, 0);
+
+        await Schema.drop("integration_soft_delete_users");
+    });
+
+    it("supports custom soft-delete columns without model timestamps", async () => {
+        await ensureConnection();
+        await Schema.dropIfExists("integration_custom_soft_delete_records");
+        await Schema.create("integration_custom_soft_delete_records", table => {
+            table.id();
+            table.string("name");
+            table.softDeletes("removed_at");
+        });
+
+        const record = await CustomSoftDeletingSqliteRecord.create({ name: "Custom" });
+        assert.equal(await record.delete(), true);
+        assert.equal(record.trashed(), true);
+
+        const stored = await CustomSoftDeletingSqliteRecord.query()
+            .withTrashed()
+            .find(record.id);
+        assert.ok(stored?.removed_at);
+        assert.equal(stored?.created_at, undefined);
+        assert.equal(stored?.updated_at, undefined);
+
+        assert.equal(await record.restore(), true);
+        assert.equal(record.trashed(), false);
+        assert.ok(await CustomSoftDeletingSqliteRecord.query().find(record.id));
+
+        await Schema.drop("integration_custom_soft_delete_records");
     });
 
     it("enforces inline foreign key constraints with cascading deletes", async () => {

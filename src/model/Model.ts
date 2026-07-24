@@ -1,5 +1,6 @@
 import Builder from "@query/Builder";
 import MassAssignmentException from "@exception/MassAssignmentException";
+import type { ModelQueryMetadata } from "@model/types";
 
 class Model {
     [x: string]: any;
@@ -21,10 +22,14 @@ class Model {
     protected hidden: string[] = [];
     
     protected timestamps: boolean = true;
+
+    protected softDeletes: boolean = false;
     
     protected readonly CREATED_AT: string = "created_at";
     
     protected readonly UPDATED_AT: string = "updated_at";
+
+    protected readonly DELETED_AT: string = "deleted_at";
     
     protected isNew: boolean = true;
 
@@ -183,7 +188,12 @@ class Model {
     }
 
     public newQuery(): Builder<this> {
-        return new Builder<this>(this);
+        const metadata: ModelQueryMetadata = {
+            softDeletes: this.softDeletes,
+            deletedAtColumn: this.DELETED_AT
+        };
+
+        return new Builder<this>(this, metadata);
     }
 
     static hydrate<T extends Model>(this: new () => T, records: Record<string, any>[]): T[] {
@@ -199,9 +209,8 @@ class Model {
     static async create<T extends Model>(this: new () => T, attributes: Record<string, any>): Promise<T> {
         const newInstance: T = new this();
         newInstance.fill(attributes);
-        const builder = new Builder(newInstance);
-
-        return await builder.create(attributes);
+        await newInstance.save();
+        return newInstance;
     }
 
     newInstance(attributes: Record<string, any>, isNew = true): this {
@@ -248,6 +257,10 @@ class Model {
 
         this.updateTimestamps();
 
+        if (this.softDeletes) {
+            builder.withTrashed();
+        }
+
         await builder
             .where(this.primaryKey, "=", this.getAttribute(this.primaryKey))
             .update(this.getDirty() as Partial<this>);
@@ -268,6 +281,120 @@ class Model {
 
     protected currentTimestamp(): string {
         return new Date().toISOString().replace('T', ' ').substring(0, 19);
+    }
+
+    async delete(): Promise<boolean> {
+        const key = this.requirePersistedKey("delete");
+
+        if (!this.softDeletes) {
+            const deleted = (await this.newQuery()
+                .where(this.primaryKey, "=", key)
+                .delete()) > 0;
+
+            if (deleted) {
+                this.isNew = true;
+            }
+
+            return deleted;
+        }
+
+        if (this.getAttribute(this.DELETED_AT) != null) {
+            return true;
+        }
+
+        const timestamp = this.currentTimestamp();
+        const attributes: Record<string, any> = {
+            [this.DELETED_AT]: timestamp
+        };
+
+        if (this.timestamps) {
+            attributes[this.UPDATED_AT] = timestamp;
+        }
+
+        const affected = await this.newQuery()
+            .where(this.primaryKey, "=", key)
+            .update(attributes as Partial<this>);
+
+        if (affected === 0) {
+            return false;
+        }
+
+        Object.entries(attributes).forEach(([column, value]) => {
+            this.setAttribute(column, value);
+        });
+        this.syncOriginalAttributes();
+        return true;
+    }
+
+    async restore(): Promise<boolean> {
+        this.requireSoftDeletes("restore");
+        const key = this.requirePersistedKey("restore");
+
+        if (
+            Object.prototype.hasOwnProperty.call(this._attributes, this.DELETED_AT) &&
+            this.getAttribute(this.DELETED_AT) === null
+        ) {
+            return true;
+        }
+
+        const attributes: Record<string, any> = {
+            [this.DELETED_AT]: null
+        };
+
+        if (this.timestamps) {
+            attributes[this.UPDATED_AT] = this.currentTimestamp();
+        }
+
+        const affected = await this.newQuery()
+            .onlyTrashed()
+            .where(this.primaryKey, "=", key)
+            .update(attributes as Partial<this>);
+
+        if (affected === 0) {
+            return false;
+        }
+
+        Object.entries(attributes).forEach(([column, value]) => {
+            this.setAttribute(column, value);
+        });
+        this.syncOriginalAttributes();
+        return true;
+    }
+
+    async forceDelete(): Promise<boolean> {
+        this.requireSoftDeletes("forceDelete");
+        const key = this.requirePersistedKey("force delete");
+
+        const deleted = (await this.newQuery()
+            .withTrashed()
+            .where(this.primaryKey, "=", key)
+            .forceDelete()) > 0;
+
+        if (deleted) {
+            this.isNew = true;
+        }
+
+        return deleted;
+    }
+
+    trashed(): boolean {
+        this.requireSoftDeletes("trashed");
+        return this.getAttribute(this.DELETED_AT) != null;
+    }
+
+    private requireSoftDeletes(method: string): void {
+        if (!this.softDeletes) {
+            throw new Error(`${method}() is only available on models with soft deletes enabled.`);
+        }
+    }
+
+    private requirePersistedKey(action: string): string | number {
+        const key = this.getAttribute(this.primaryKey);
+        if (this.isNew || key === null || key === undefined) {
+            throw new Error(`Cannot ${action} an unsaved ${this.constructor.name} model.`);
+        }
+
+        return key;
     }
 
     getTable(): string {

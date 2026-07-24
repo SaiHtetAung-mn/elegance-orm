@@ -4,6 +4,11 @@ import Grammar from "@query/grammars/Grammar";
 import Processor from "@query/processors/Processor";
 import operatorEnum from "@query/enums/operator";
 import { QueryObjType } from "@query/types";
+import type {
+    ModelQueryMetadata,
+    SoftDeleteConstraint,
+    TrashedMode
+} from "@model/types";
 
 class Builder<T extends Model> {
     protected readonly queryObj: QueryObjType = {
@@ -28,12 +33,15 @@ class Builder<T extends Model> {
     }
 
     private model: T;
+    private readonly modelMetadata: ModelQueryMetadata;
+    private trashedMode: TrashedMode = "without";
     private connection: Connection;
     private grammar: Grammar;
     private processor: Processor;
 
-    constructor(model: T) {
+    constructor(model: T, metadata: ModelQueryMetadata) {
         this.model = model;
+        this.modelMetadata = metadata;
         this.queryObj.from = model.getTable();
         this.queryObj.primaryKey = model.getPrimaryKey();
         this.connection = Connection.getInstance();
@@ -43,6 +51,22 @@ class Builder<T extends Model> {
 
     getQueryObj(): QueryObjType {
         return this.queryObj;
+    }
+
+    getSoftDeleteConstraint(useAlias = true): SoftDeleteConstraint | null {
+        if (!this.modelMetadata.softDeletes || this.trashedMode === "with") {
+            return null;
+        }
+
+        const column = this.modelMetadata.deletedAtColumn;
+        const qualifier = useAlias
+            ? this.queryObj.alias ?? this.queryObj.from
+            : this.queryObj.from;
+
+        return {
+            column: column.includes(".") ? column : `${qualifier}.${column}`,
+            trashed: this.trashedMode === "only"
+        };
     }
 
     as(alias: string): this {
@@ -71,17 +95,22 @@ class Builder<T extends Model> {
     async first(): Promise<T | null> {
         const previousLimit = this.queryObj.limit;
         this.limit(1);
-        const data = await this.get();
-        this.queryObj.limit = previousLimit;
-        return data.length > 0 ? data[0] : null;
+        try {
+            const data = await this.get();
+            return data.length > 0 ? data[0] : null;
+        } finally {
+            this.queryObj.limit = previousLimit;
+        }
     }
 
     async get(): Promise<T[]> {
         const query = this.grammar.compileSelect(this);
         const binding = [...this.binding.where, ...this.binding.having];
-        const data: T[] = await this.processor.processSelect<T>(query, binding, this.model.constructor);
-        this.resetBindings();
-        return data;
+        try {
+            return await this.processor.processSelect<T>(query, binding, this.model.constructor);
+        } finally {
+            this.resetBindings();
+        }
     }
 
     async insertGetId(attributes: Record<string, any>): Promise<number | null> {
@@ -115,23 +144,92 @@ class Builder<T extends Model> {
     }
 
     async update(attributes: Partial<T>): Promise<number> {
-        const columns: string[] = Object.keys(attributes as Record<string, any>);
-        const values: any[] = columns.map(column => (attributes as Record<string, any>)[column]);
-        const sql: string = this.grammar.compileUpdate(this, columns);
-        const bindings: any[] = [...values, ...this.binding.where];
-
-        const affected = await this.processor.processUpdate(sql, bindings);
-        this.resetBindings();
-        return affected;
+        return await this.executeUpdate(attributes as Record<string, any>);
     }
 
     async delete(): Promise<number> {
+        if (this.modelMetadata.softDeletes) {
+            return await this.executeUpdate({
+                [this.modelMetadata.deletedAtColumn]: this.currentTimestamp()
+            });
+        }
+
+        return await this.executeDelete();
+    }
+
+    withTrashed(include = true): this {
+        this.requireSoftDeletes("withTrashed");
+        this.trashedMode = include ? "with" : "without";
+        return this;
+    }
+
+    withoutTrashed(): this {
+        this.requireSoftDeletes("withoutTrashed");
+        this.trashedMode = "without";
+        return this;
+    }
+
+    onlyTrashed(): this {
+        this.requireSoftDeletes("onlyTrashed");
+        this.trashedMode = "only";
+        return this;
+    }
+
+    async restore(): Promise<number> {
+        this.requireSoftDeletes("restore");
+        const previousMode = this.trashedMode;
+        this.trashedMode = "only";
+
+        try {
+            return await this.executeUpdate({
+                [this.modelMetadata.deletedAtColumn]: null
+            });
+        } finally {
+            this.trashedMode = previousMode;
+        }
+    }
+
+    async forceDelete(): Promise<number> {
+        this.requireSoftDeletes("forceDelete");
+        return await this.executeDelete();
+    }
+
+    private async executeUpdate(attributes: Record<string, any>): Promise<number> {
+        const columns = Object.keys(attributes);
+        if (columns.length === 0) {
+            throw new Error("The 'update' method requires at least one attribute.");
+        }
+
+        const values = columns.map(column => attributes[column]);
+        const sql = this.grammar.compileUpdate(this, columns);
+        const bindings = [...values, ...this.binding.where];
+
+        try {
+            return await this.processor.processUpdate(sql, bindings);
+        } finally {
+            this.resetBindings();
+        }
+    }
+
+    private async executeDelete(): Promise<number> {
         const sql: string = this.grammar.compileDelete(this);
         const bindings: any[] = [...this.binding.where];
 
-        const deleted = await this.processor.processDelete(sql, bindings);
-        this.resetBindings();
-        return deleted;
+        try {
+            return await this.processor.processDelete(sql, bindings);
+        } finally {
+            this.resetBindings();
+        }
+    }
+
+    private requireSoftDeletes(method: string): void {
+        if (!this.modelMetadata.softDeletes) {
+            throw new Error(`${method}() is only available on models with soft deletes enabled.`);
+        }
+    }
+
+    private currentTimestamp(): string {
+        return new Date().toISOString().replace("T", " ").substring(0, 19);
     }
 
     /** Aggregation methods */
@@ -217,15 +315,18 @@ class Builder<T extends Model> {
         this.queryObj.limit = null;
         this.queryObj.offset = null;
 
-        const sql = this.grammar.compileSelect(this);
-        const result = await this.connection.select(sql, [...this.binding.where, ...this.binding.having]);
-        this.resetBindings();
-
-        this.queryObj.aggregate = original.aggregate;
-        this.queryObj.selects = original.selects;
-        this.queryObj.orders = original.orders;
-        this.queryObj.limit = original.limit;
-        this.queryObj.offset = original.offset;
+        let result: any[];
+        try {
+            const sql = this.grammar.compileSelect(this);
+            result = await this.connection.select(sql, [...this.binding.where, ...this.binding.having]);
+        } finally {
+            this.resetBindings();
+            this.queryObj.aggregate = original.aggregate;
+            this.queryObj.selects = original.selects;
+            this.queryObj.orders = original.orders;
+            this.queryObj.limit = original.limit;
+            this.queryObj.offset = original.offset;
+        }
 
         if (result.length === 0)
             return 0;

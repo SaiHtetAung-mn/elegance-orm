@@ -47,10 +47,9 @@ class MySqlGrammar extends Grammar {
             colValPairs
         );
 
-        if (builder.getQueryObj().wheres.length > 0) {
-            query.push(
-                this.compileWhere(builder)
-            );
+        const where = this.compileWhere(builder, false);
+        if (where) {
+            query.push(where);
         }
 
         return query.join(" ").trim();
@@ -63,8 +62,9 @@ class MySqlGrammar extends Grammar {
             this.wrapTable(builder.getQueryObj().from)
         ];
 
-        if (builder.getQueryObj().wheres.length > 0) {
-            query.push(this.compileWhere(builder));
+        const where = this.compileWhere(builder, false);
+        if (where) {
+            query.push(where);
         }
 
         return query.join(" ").trim();
@@ -104,20 +104,14 @@ class MySqlGrammar extends Grammar {
         return "from " + table;
     }
 
-    compileWhere(builder: Builder<any>): string {
+    compileWhere(builder: Builder<any>, useAlias = true): string {
         const wheres = builder.getQueryObj().wheres;
-        if (wheres.length === 0) {
-            return "";
-        }
-
         const whereClauses = wheres
             .map((where) => this.compileWhereComponent(where))
             .filter((clause): clause is string => Boolean(clause));
 
-        if (whereClauses.length === 0)
-            return "";
-
-        return ["where", this.removeLeadingWhereBoolean(whereClauses.join(" "))].join(" ");
+        const userClause = this.removeLeadingWhereBoolean(whereClauses.join(" "));
+        return this.compileWhereClause(builder, userClause, useAlias);
     }
 
     protected compileWhereComponent(where: WhereObjType): string {

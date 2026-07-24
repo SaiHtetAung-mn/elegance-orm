@@ -1,5 +1,6 @@
 import { Model } from "@elegance";
 import Connection from "@connection/Connection";
+import QueryGrammar from "@query/grammars/Grammar";
 import SQLiteQueryGrammar from "@query/grammars/SQLiteGrammar";
 import Processor from "@query/processors/Processor";
 import SQLiteSchemaGrammar from "@schema/grammars/SQLiteGrammar";
@@ -38,7 +39,7 @@ export class QueryStubProcessor implements Processor {
 }
 
 export class QueryConnectionStub {
-    grammar = new SQLiteQueryGrammar();
+    grammar: QueryGrammar = new SQLiteQueryGrammar();
     processor = new QueryStubProcessor();
     aggregateValue = 0;
     lastAggregate?: { query: string; bindings: any[] };

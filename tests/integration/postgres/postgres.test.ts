@@ -32,6 +32,12 @@ class PostgresPost extends Model {
     protected fillable = ["title", "author_id"];
 }
 
+class SoftDeletingPostgresUser extends Model {
+    protected table = "integration_soft_delete_users";
+    protected fillable = ["name"];
+    protected softDeletes = true;
+}
+
 const pgConfig: DataSourceOptions = {
     driver: "postgresql",
     host: "127.0.0.1",
@@ -51,6 +57,7 @@ async function cleanupPostgresSchema(): Promise<void> {
     const tables = [
         "integration_fk_posts",
         "integration_fk_authors",
+        "integration_soft_delete_users",
         "integration_users",
         "integration_categories",
         "integration_logs"
@@ -365,5 +372,59 @@ describe("Integration - PostgreSQL (real database)", () => {
 
         await Schema.drop("integration_fk_posts");
         await Schema.drop("integration_fk_authors");
+    });
+
+    it("soft deletes, restores, and permanently deletes records", async () => {
+        await ensurePostgresConnection();
+        await Schema.dropIfExists("integration_soft_delete_users");
+        await Schema.create("integration_soft_delete_users", table => {
+            table.id();
+            table.string("name");
+            table.softDeletes();
+            table.timestamps();
+        });
+
+        const active = await SoftDeletingPostgresUser.create({ name: "Active" });
+        const archived = await SoftDeletingPostgresUser.create({ name: "Archived" });
+
+        assert.equal(await archived.delete(), true);
+        assert.equal(archived.trashed(), true);
+        assert.equal(await SoftDeletingPostgresUser.query().count(), 1);
+        assert.equal(await SoftDeletingPostgresUser.query().withTrashed().count(), 2);
+        assert.equal(await SoftDeletingPostgresUser.query().onlyTrashed().count(), 1);
+
+        const visible = await SoftDeletingPostgresUser.query()
+            .where("name", "=", "Active")
+            .orWhere("name", "=", "Archived")
+            .get();
+        assert.deepEqual(visible.map(user => user.name), ["Active"]);
+
+        const ignoredUpdate = await SoftDeletingPostgresUser.query()
+            .where("id", "=", archived.id)
+            .update({ name: "Still Archived" } as any);
+        assert.equal(ignoredUpdate, 0);
+
+        const restored = await SoftDeletingPostgresUser.query()
+            .where("id", "=", archived.id)
+            .restore();
+        assert.equal(restored, 1);
+        assert.equal(await SoftDeletingPostgresUser.query().count(), 2);
+
+        assert.equal(
+            await SoftDeletingPostgresUser.query()
+                .where("id", "=", active.id)
+                .delete(),
+            1
+        );
+        assert.equal(
+            await SoftDeletingPostgresUser.query()
+                .onlyTrashed()
+                .where("id", "=", active.id)
+                .forceDelete(),
+            1
+        );
+        assert.equal(await SoftDeletingPostgresUser.query().withTrashed().count(), 1);
+
+        await Schema.drop("integration_soft_delete_users");
     });
 });

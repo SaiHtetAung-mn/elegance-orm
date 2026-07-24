@@ -21,6 +21,7 @@ describe("Unit - Schema Builder", () => {
             table.integer("quantity").default(0);
             table.boolean("published").default(1);
             table.json("meta").nullable();
+            table.softDeletes();
             table.timestamps();
         });
 
@@ -33,6 +34,7 @@ describe("Unit - Schema Builder", () => {
         assert.ok(sql.includes('"quantity" integer not null default 0'));
         assert.ok(sql.includes('"published" integer not null default 1'));
         assert.ok(sql.includes('"meta" text'));
+        assert.ok(sql.includes('"deleted_at" datetime'));
         assert.ok(sql.includes('"created_at" datetime'));
         assert.ok(sql.includes('"updated_at" datetime'));
     });
@@ -60,11 +62,13 @@ describe("Unit - Schema Builder", () => {
     it("renames, drops columns, and handles table existence checks", async () => {
         await builder.renameColumn("widgets", "name", "title");
         await builder.dropColumns("widgets", ["legacy_field"]);
+        await builder.table("widgets", table => table.dropSoftDeletes());
         await builder.drop("widgets");
         await builder.dropIfExists("widgets_backup");
 
         assert.ok(connection.statements.some(sql => sql.includes('rename column "name" to "title"')));
         assert.ok(connection.statements.some(sql => sql.includes('drop column "legacy_field"')));
+        assert.ok(connection.statements.some(sql => sql.includes('drop column "deleted_at"')));
         assert.ok(connection.statements.some(sql => sql.includes('drop table "widgets"')));
         assert.ok(connection.statements.some(sql => sql.includes('drop table if exists "widgets_backup"')));
 

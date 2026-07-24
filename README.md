@@ -122,6 +122,7 @@ class Article extends Model {
   protected guarded = ["user_id", "is_admin"];
   protected hidden = ["user_id"];
   protected timestamps = true;
+  protected softDeletes = false;
 }
 ```
 
@@ -133,8 +134,10 @@ class Article extends Model {
 | `guarded` | `[]` | Attributes excluded from mass assignment. Use `["*"]` to deny all by default. |
 | `hidden` | `[]` | Attributes removed by `toJSON()`. |
 | `timestamps` | `true` | Adds `created_at` and `updated_at` values during model saves. |
+| `softDeletes` | `false` | Uses `deleted_at` instead of removing records. |
 | `CREATED_AT` | `"created_at"` | Name of the creation timestamp column. |
 | `UPDATED_AT` | `"updated_at"` | Name of the update timestamp column. |
+| `DELETED_AT` | `"deleted_at"` | Name of the soft-delete timestamp column. |
 
 ### Creating and updating
 
@@ -151,6 +154,42 @@ await article.save();
 
 `create()` inserts a record immediately. `save()` inserts new models and updates existing models. Existing models only write dirty attributes. Timestamp columns are managed automatically when timestamps are enabled.
 
+### Soft deletes
+
+Add a nullable soft-delete column in the migration and enable it on the model:
+
+```ts
+await Schema.create("articles", table => {
+  table.id();
+  table.string("title");
+  table.softDeletes();
+  table.timestamps();
+});
+
+class Article extends Model {
+  protected table = "articles";
+  protected fillable = ["title"];
+  protected softDeletes = true;
+}
+```
+
+Soft-deleting models exclude deleted records from queries by default:
+
+```ts
+await article.delete();
+
+await Article.query().get();               // active records
+await Article.query().withTrashed().get(); // active and deleted records
+await Article.query().onlyTrashed().get(); // deleted records
+
+await article.restore();
+await article.forceDelete();
+```
+
+`delete()`, `restore()`, and `forceDelete()` are also available on the query builder and return the number of affected rows. `trashed()` reports whether a model instance is deleted. Soft-delete-specific methods throw when `softDeletes` is disabled.
+
+Override `DELETED_AT` when the table uses a different column name. Use `table.softDeletes("removed_at")` in the matching migration.
+
 ### Model methods
 
 | Method | Returns | Description |
@@ -158,6 +197,10 @@ await article.save();
 | `Model.create(attributes)` | `Promise<Model>` | Creates and inserts a model using mass-assignment rules. |
 | `model.fill(attributes)` | `void` | Assigns allowed attributes. Totally guarded models throw `MassAssignmentException` for rejected input. |
 | `model.save()` | `Promise<boolean>` | Inserts a new model or updates dirty attributes on an existing model. |
+| `model.delete()` | `Promise<boolean>` | Soft deletes the model when enabled; otherwise deletes it permanently. |
+| `model.restore()` | `Promise<boolean>` | Restores a soft-deleted model. |
+| `model.forceDelete()` | `Promise<boolean>` | Permanently deletes a soft-deleting model. |
+| `model.trashed()` | `boolean` | Reports whether the model has been soft deleted. |
 | `model.toJSON()` | `object` | Returns model attributes without hidden columns. |
 
 ### Mass assignment
@@ -330,7 +373,12 @@ await User.query()
 | `insert(records)` | `Promise<void>` | Performs a bulk insert. Bypasses fillable checks and model timestamps. |
 | `insertGetId(attributes)` | `Promise<number \| null>` | Inserts one row and returns its generated key when supported by the driver. |
 | `update(attributes)` | `Promise<number>` | Updates rows matching the current constraints. |
-| `delete()` | `Promise<number>` | Deletes rows matching the current constraints. |
+| `delete()` | `Promise<number>` | Deletes matching rows, or soft deletes them when enabled on the model. |
+| `restore()` | `Promise<number>` | Restores matching soft-deleted rows. |
+| `forceDelete()` | `Promise<number>` | Permanently deletes matching rows. |
+| `withTrashed(include = true)` | `Builder` | Includes soft-deleted rows. |
+| `withoutTrashed()` | `Builder` | Excludes soft-deleted rows. |
+| `onlyTrashed()` | `Builder` | Selects only soft-deleted rows. |
 | `toSql()` | `string` | Returns the compiled select SQL without executing it. |
 
 ## Schema builder
@@ -378,10 +426,12 @@ await Schema.table("users", table => {
 | IDs | `id`, `increment`, `bigIncrement`, `smallIncrement` |
 | Integers | `integer`, `bigInteger`, `smallInteger` |
 | Text | `char`, `string`, `text`, `longText` |
-| Date and time | `date`, `dateTime`, `time`, `timestamp`, `year`, `timestamps` |
+| Date and time | `date`, `dateTime`, `time`, `timestamp`, `year`, `timestamps`, `softDeletes` |
 | Other | `uuid`, `json`, `binary`, `boolean`, `float`, `double` |
 
 Column definitions support `nullable()`, `default()`, `unsigned()`, `useCurrent()`, `useCurrentOnUpdate()`, `onUpdate()`, `after()`, `first()`, `comments()`, `index()`, `primary()`, and `unique()`.
+
+Use `dropSoftDeletes()` when removing the default `deleted_at` column, or pass its custom name.
 
 ### Indexes and foreign keys
 

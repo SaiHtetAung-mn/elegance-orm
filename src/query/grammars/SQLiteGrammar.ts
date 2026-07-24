@@ -44,8 +44,9 @@ class SQLiteGrammar extends Grammar {
             assignments
         ];
 
-        if (builder.getQueryObj().wheres.length > 0) {
-            query.push(this.compileWhere(builder));
+        const where = this.compileWhere(builder, false);
+        if (where) {
+            query.push(where);
         }
 
         return query.join(" ").trim();
@@ -57,8 +58,9 @@ class SQLiteGrammar extends Grammar {
             this.wrapTable(builder.getQueryObj().from)
         ];
 
-        if (builder.getQueryObj().wheres.length > 0) {
-            query.push(this.compileWhere(builder));
+        const where = this.compileWhere(builder, false);
+        if (where) {
+            query.push(where);
         }
 
         return query.join(" ").trim();
@@ -98,13 +100,11 @@ class SQLiteGrammar extends Grammar {
         return `from ${table}`;
     }
 
-    compileWhere(builder: Builder<any>): string {
+    compileWhere(builder: Builder<any>, useAlias = true): string {
         const wheres = builder.getQueryObj().wheres;
-        if (wheres.length === 0)
-            return "";
-
         const clauses = wheres.map(where => this.compileWhereComponent(where));
-        return ["where", this.removeLeadingBoolean(clauses.join(" "))].join(" ");
+        const userClause = this.removeLeadingBoolean(clauses.join(" "));
+        return this.compileWhereClause(builder, userClause, useAlias);
     }
 
     protected compileWhereComponent(where: WhereObjType): string {

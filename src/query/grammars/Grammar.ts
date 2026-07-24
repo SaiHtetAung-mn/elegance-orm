@@ -11,7 +11,7 @@ abstract class Grammar {
     abstract compileDistinct(builder: Builder<any>): string;
     abstract compileColumns(builder: Builder<any>): string;
     abstract compileFrom(builder: Builder<any>): string;
-    abstract compileWhere(builder: Builder<any>): string;
+    abstract compileWhere(builder: Builder<any>, useAlias?: boolean): string;
     abstract compileOrderBy(builder: Builder<any>): string;
     abstract compileGroupBy(builder: Builder<any>): string;
     abstract compileHaving(builder: Builder<any>): string;
@@ -33,6 +33,24 @@ abstract class Grammar {
         });
 
         return clauses.join(" ");
+    }
+
+    protected compileWhereClause(
+        builder: Builder<any>,
+        userClause: string,
+        useAlias = true
+    ): string {
+        const constraint = builder.getSoftDeleteConstraint(useAlias);
+        if (!constraint) {
+            return userClause ? `where ${userClause}` : "";
+        }
+
+        const softDeleteClause = `${this.wrap(constraint.column)} is ${constraint.trashed ? "not " : ""}null`;
+        if (!userClause) {
+            return `where ${softDeleteClause}`;
+        }
+
+        return `where (${userClause}) and ${softDeleteClause}`;
     }
 
     abstract wrap(val: string): string;

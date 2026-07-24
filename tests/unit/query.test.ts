@@ -1,11 +1,22 @@
 import { strict as assert } from "assert";
 import { Model } from "@elegance";
 import Connection from "@connection/Connection";
+import MySqlGrammar from "@query/grammars/MySqlGrammar";
+import PostgreSqlGrammar from "@query/grammars/PostgreSqlGrammar";
 import { QueryConnectionStub } from "@tests/unit/helpers";
 
 class QueryTestModel extends Model {
     protected table = "users";
     protected fillable = ["name", "role", "age", "visits"];
+}
+
+class SoftDeleteQueryTestModel extends QueryTestModel {
+    protected softDeletes = true;
+}
+
+class CustomSoftDeleteQueryTestModel extends QueryTestModel {
+    protected softDeletes = true;
+    protected readonly DELETED_AT = "removed_at";
 }
 
 describe("Unit - Query Builder", () => {
@@ -198,5 +209,151 @@ describe("Unit - Query Builder", () => {
             builder.toSql(),
             'select "u"."name" from "users" as "u" inner join "profiles" on "u"."id" = "profiles"."user_id"'
         );
+    });
+
+    it("scopes soft-deleting models without leaking through or conditions", () => {
+        assert.equal(
+            SoftDeleteQueryTestModel.query().toSql(),
+            'select * from "users" where "users"."deleted_at" is null'
+        );
+
+        assert.equal(
+            SoftDeleteQueryTestModel.query()
+                .where("role", "=", "admin")
+                .orWhere("name", "=", "Alice")
+                .toSql(),
+            'select * from "users" where ("role" = ? or "name" = ?) and "users"."deleted_at" is null'
+        );
+
+        assert.equal(
+            SoftDeleteQueryTestModel.query("u").toSql(),
+            'select * from "users" as "u" where "u"."deleted_at" is null'
+        );
+    });
+
+    it("compiles soft-delete scopes for every supported driver", () => {
+        connectionStub.grammar = new MySqlGrammar();
+        assert.equal(
+            SoftDeleteQueryTestModel.query()
+                .where("role", "=", "admin")
+                .orWhere("name", "=", "Alice")
+                .toSql(),
+            "select * from `users` where (`role` = ? or `name` = ?) and `users`.`deleted_at` is null"
+        );
+
+        connectionStub.grammar = new PostgreSqlGrammar();
+        assert.equal(
+            SoftDeleteQueryTestModel.query("u").onlyTrashed().toSql(),
+            'select * from "users" as "u" where "u"."deleted_at" is not null'
+        );
+    });
+
+    it("switches between soft-delete query modes", () => {
+        assert.equal(
+            SoftDeleteQueryTestModel.query().withTrashed().toSql(),
+            'select * from "users"'
+        );
+        assert.equal(
+            SoftDeleteQueryTestModel.query().onlyTrashed().toSql(),
+            'select * from "users" where "users"."deleted_at" is not null'
+        );
+        assert.equal(
+            SoftDeleteQueryTestModel.query()
+                .withTrashed()
+                .withoutTrashed()
+                .toSql(),
+            'select * from "users" where "users"."deleted_at" is null'
+        );
+        assert.equal(
+            CustomSoftDeleteQueryTestModel.query().toSql(),
+            'select * from "users" where "users"."removed_at" is null'
+        );
+
+        assert.throws(
+            () => QueryTestModel.query().withTrashed(),
+            /only available on models with soft deletes enabled/
+        );
+    });
+
+    it("soft deletes, restores, and force deletes through the builder", async () => {
+        const deleted = await SoftDeleteQueryTestModel.query()
+            .where("id", "=", 5)
+            .delete();
+
+        assert.equal(deleted, 1);
+        assert.match(
+            connectionStub.processor.lastUpdate?.query ?? "",
+            /^update "users" set "deleted_at" = \? where \("id" = \?\) and "users"\."deleted_at" is null$/
+        );
+        assert.equal(connectionStub.processor.lastUpdate?.bindings[1], 5);
+        assert.match(connectionStub.processor.lastUpdate?.bindings[0], /^\d{4}-\d{2}-\d{2} /);
+
+        const restored = await SoftDeleteQueryTestModel.query()
+            .where("id", "=", 5)
+            .restore();
+
+        assert.equal(restored, 1);
+        assert.equal(
+            connectionStub.processor.lastUpdate?.query,
+            'update "users" set "deleted_at" = ? where ("id" = ?) and "users"."deleted_at" is not null'
+        );
+        assert.deepEqual(connectionStub.processor.lastUpdate?.bindings, [null, 5]);
+
+        const forceDeleted = await SoftDeleteQueryTestModel.query()
+            .withTrashed()
+            .where("id", "=", 5)
+            .forceDelete();
+
+        assert.equal(forceDeleted, 1);
+        assert.equal(
+            connectionStub.processor.lastDelete?.query,
+            'delete from "users" where "id" = ?'
+        );
+        assert.deepEqual(connectionStub.processor.lastDelete?.bindings, [5]);
+    });
+
+    it("keeps model state in sync when deleting and restoring", async () => {
+        const model = SoftDeleteQueryTestModel.hydrate([{
+            id: 7,
+            name: "Soft Delete",
+            deleted_at: null,
+            updated_at: "2026-01-01 00:00:00"
+        }])[0];
+
+        assert.equal(model.trashed(), false);
+        assert.equal(await model.delete(), true);
+        assert.equal(model.trashed(), true);
+        assert.ok(model.deleted_at);
+
+        assert.equal(await model.restore(), true);
+        assert.equal(model.trashed(), false);
+        assert.equal(model.deleted_at, null);
+
+        assert.equal(await model.forceDelete(), true);
+        assert.equal(
+            connectionStub.processor.lastDelete?.query,
+            'delete from "users" where "id" = ?'
+        );
+
+        await model.save();
+        assert.ok(connectionStub.processor.lastInsert);
+
+        const partial = SoftDeleteQueryTestModel.hydrate([{ id: 8 }])[0];
+        assert.equal(await partial.restore(), true);
+        assert.equal(
+            connectionStub.processor.lastUpdate?.query,
+            'update "users" set "deleted_at" = ?, "updated_at" = ? where ("id" = ?) and "users"."deleted_at" is not null'
+        );
+    });
+
+    it("rejects soft-delete operations for regular and unsaved models", async () => {
+        const regular = QueryTestModel.hydrate([{ id: 1, name: "Regular" }])[0];
+        assert.throws(() => regular.trashed(), /only available/);
+        await assert.rejects(() => regular.restore(), /only available/);
+        await assert.rejects(() => regular.forceDelete(), /only available/);
+
+        const unsaved = new SoftDeleteQueryTestModel();
+        await assert.rejects(() => unsaved.delete(), /Cannot delete an unsaved/);
+        await assert.rejects(() => unsaved.restore(), /Cannot restore an unsaved/);
     });
 });
